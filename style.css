@@ -1,0 +1,9 @@
+/* Custom styles for better look and feel */
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+.drop-zone-active {
+    border-color: #2563eb;
+    background-color: #eff6ff;
+}
