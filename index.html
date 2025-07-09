@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PFMS Report Analyzer</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Source+Code+Pro&display=swap" rel="stylesheet">
+    
+    <!-- Link to your custom CSS file -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-4xl bg-white rounded-xl shadow-lg p-6 md:p-8 space-y-6">
+        
+        <!-- Header -->
+        <div class="text-center">
+            <h1 class="text-3xl font-bold text-slate-800">PFMS Report Analyzer</h1>
+            <p class="text-slate-500 mt-1">Upload an XML, PDF, or Excel report to begin.</p>
+        </div>
+
+        <!-- File Upload Section -->
+        <div>
+            <input type="file" id="fileInput" class="hidden" accept=".xml,.pdf,.xlsx">
+            <div id="dropZone" class="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer transition-all duration-300 hover:border-blue-500 hover:bg-blue-50">
+                <div class="flex flex-col items-center justify-center space-y-2 text-slate-600">
+                    <svg class="w-12 h-12 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3 3m3-3l3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                    </svg>
+                    <p class="font-semibold">Drag & drop your file here</p>
+                    <p class="text-sm">or <span class="text-blue-600 font-medium">click to select a file</span></p>
+                    <p id="filePath" class="text-xs text-slate-500 pt-2 break-all"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls and Status -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <button id="analyzeButton" class="w-full sm:w-auto bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none" disabled>
+                Analyze Report
+            </button>
+            <div id="status" class="text-sm text-slate-600 font-medium bg-slate-200 px-3 py-1 rounded-full">
+                Ready
+            </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div class="bg-slate-50 rounded-lg p-4 mt-6">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-xl font-bold text-slate-700">Analysis Results</h2>
+                <!-- Toggle Switch -->
+                <div class="flex items-center space-x-2">
+                    <label for="includeTokensToggle" class="text-sm font-medium text-slate-600">Include Tokens</label>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" id="includeTokensToggle" class="sr-only peer" checked>
+                      <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-300 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+            </div>
+            <div class="w-full h-80 bg-white border border-slate-200 rounded-md p-4 overflow-auto">
+                <pre id="resultsArea" class="text-sm text-slate-800 whitespace-pre-wrap" style="font-family: 'Source Code Pro', monospace;"></pre>
+            </div>
+            <p class="text-xs text-slate-500 mt-2 text-center">For 100% accuracy, please use the official XML report. Analysis of PDF/Excel files depends on consistent document formatting.</p>
+        </div>
+
+    </div>
+
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+
+    <!-- Link to your custom JavaScript file -->
+    <script src="script.js"></script>
+</body>
+</html>
