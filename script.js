@@ -42,7 +42,7 @@ function handleFile(file) {
         filePathDisplay.textContent = `Selected: ${file.name}`;
         analyzeButton.disabled = false;
         updateStatus('File selected. Ready to analyze.', 'success');
-        resultsArea.textContent = '';
+        resultsArea.innerHTML = ''; // Clear previous results view
     } else {
         selectedFile = null;
         filePathDisplay.textContent = '';
@@ -70,7 +70,7 @@ async function analyzeFile() {
     }
     updateStatus('Processing file...', 'processing');
     analyzeButton.disabled = true;
-    resultsArea.textContent = 'Analyzing... please wait.';
+    resultsArea.innerHTML = '<p class="text-center text-slate-500">Analyzing... please wait.</p>';
 
     try {
         const fileExtension = selectedFile.name.split('.').pop().toLowerCase();
@@ -90,7 +90,7 @@ async function analyzeFile() {
     } catch (error) {
         console.error('Analysis Error:', error);
         updateStatus(`Error: ${error.message}`, 'error');
-        resultsArea.textContent = `Failed to analyze file. Please check if the file is valid and not corrupted.\n\nDetails: ${error.message}`;
+        resultsArea.innerHTML = `<p class="text-center text-red-600">Failed to analyze file. Please check if the file is valid and not corrupted.<br><span class="text-sm">${error.message}</span></p>`;
     } finally {
         analyzeButton.disabled = false;
     }
@@ -129,10 +129,6 @@ function readXlsxFile(file) {
     });
 }
 
-/**
- * Parses structured XML content. This is the most reliable method.
- * @param {string} xmlString The XML content as a string.
- */
 function parseXMLContent(xmlString) {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, "application/xml");
@@ -140,43 +136,54 @@ function parseXMLContent(xmlString) {
         throw new Error("Failed to parse XML file. It may be corrupted or malformed.");
     }
 
-    let vVoucherCount = 0, normalBillCount = 0, eBillCount = 0;
-    const normalBillTokens = [];
+    let vVoucherCount = 0, vNormalBillCount = 0, vEBillCount = 0;
+    let cVoucherCount = 0, cNormalBillCount = 0, cEBillCount = 0;
+    const vNormalBillTokens = [];
+    const cNormalBillTokens = [];
     const vouchers = xmlDoc.getElementsByTagName('VoucherNumber');
 
     for (const voucher of vouchers) {
-        if (String(voucher.getAttribute('VoucherNumber')).trim().startsWith('V')) {
+        const voucherNumberStr = String(voucher.getAttribute('VoucherNumber')).trim();
+        const detailsList = voucher.getElementsByTagName('Details');
+        const isVoucherNormal = Array.from(detailsList).some(d => d.getAttribute('billType') === 'Normal');
+        const tokenEl = voucher.getElementsByTagName('TokenNumber')[0];
+        const token = tokenEl ? String(tokenEl.getAttribute('TokenNumber')).trim().split(/[\s\r\n]+/)[0] : null;
+
+        if (voucherNumberStr.startsWith('V')) {
             vVoucherCount++;
-            const detailsList = voucher.getElementsByTagName('Details');
-            let isVoucherNormal = Array.from(detailsList).some(d => d.getAttribute('billType') === 'Normal');
-            
             if (isVoucherNormal) {
-                normalBillCount++;
-                const tokenEl = voucher.getElementsByTagName('TokenNumber')[0];
-                if (tokenEl) {
-                    const token = String(tokenEl.getAttribute('TokenNumber')).trim().split(/[\s\r\n]+/)[0];
-                    if (token) normalBillTokens.push(token);
-                }
+                vNormalBillCount++;
+                if (token) vNormalBillTokens.push(token);
             } else if (detailsList.length > 0) {
-                eBillCount++;
+                vEBillCount++;
+            }
+        } else if (voucherNumberStr.startsWith('C')) {
+            cVoucherCount++;
+            if (isVoucherNormal) {
+                cNormalBillCount++;
+                if (token) cNormalBillTokens.push(token);
+            } else if (detailsList.length > 0) {
+                cEBillCount++;
             }
         }
     }
-    // Sort tokens numerically before storing them
-    normalBillTokens.sort((a, b) => a - b);
-    const results = { vVoucherCount, normalBillCount, eBillCount, normalBillTokens };
-    lastResults = results; // Store results
+    
+    vNormalBillTokens.sort((a, b) => a - b);
+    cNormalBillTokens.sort((a, b) => a - b);
+
+    const results = { 
+        vVoucherCount, vNormalBillCount, vEBillCount, vNormalBillTokens,
+        cVoucherCount, cNormalBillCount, cEBillCount, cNormalBillTokens
+    };
+    lastResults = results;
     displayResults(results);
 }
 
-/**
- * Parses less-structured data from PDF/Excel by analyzing rows/lines.
- * @param {Array<Array<string>>} rows Data represented as an array of rows, where each row is an array of cells/strings.
- * @param {'PDF'|'Excel'} format The source format, for logging purposes.
- */
 function parseStructuredText(rows, format) {
-    let vVoucherCount = 0, normalBillCount = 0, eBillCount = 0;
-    const normalBillTokens = [];
+    let vVoucherCount = 0, vNormalBillCount = 0, vEBillCount = 0;
+    let cVoucherCount = 0, cNormalBillCount = 0, cEBillCount = 0;
+    const vNormalBillTokens = [];
+    const cNormalBillTokens = [];
     let voucherCol = -1, billTypeCol = -1, tokenCol = -1;
 
     if (format === 'Excel') {
@@ -198,7 +205,7 @@ function parseStructuredText(rows, format) {
             tokenNumber = (tokenCol !== -1) ? (row[tokenCol] || '') : '';
         } else {
             const rowText = row.join(' ');
-            const voucherMatch = rowText.match(/\bV\d+\b/);
+            const voucherMatch = rowText.match(/\b[VC]\d+\b/);
             if (!voucherMatch) continue;
             
             voucherNumber = voucherMatch[0];
@@ -211,52 +218,103 @@ function parseStructuredText(rows, format) {
             }
         }
         
-        if (String(voucherNumber).trim().startsWith('V')) {
+        const trimmedVoucher = String(voucherNumber).trim();
+        if (trimmedVoucher.startsWith('V')) {
             vVoucherCount++;
             if (/Normal/i.test(String(billType))) {
-                normalBillCount++;
-                if(tokenNumber) normalBillTokens.push(String(tokenNumber).trim());
+                vNormalBillCount++;
+                if(tokenNumber) vNormalBillTokens.push(String(tokenNumber).trim());
             } else if (/e-Bill/i.test(String(billType))) {
-                eBillCount++;
+                vEBillCount++;
+            }
+        } else if (trimmedVoucher.startsWith('C')) {
+            cVoucherCount++;
+            if (/Normal/i.test(String(billType))) {
+                cNormalBillCount++;
+                if(tokenNumber) cNormalBillTokens.push(String(tokenNumber).trim());
+            } else if (/e-Bill/i.test(String(billType))) {
+                cEBillCount++;
             }
         }
     }
-
-    if (vVoucherCount > 0 && vVoucherCount !== (normalBillCount + eBillCount)) {
-         console.warn(`Potential parsing discrepancy. Please verify the source file format.`);
-    }
     
-    const uniqueTokens = [...new Set(normalBillTokens)];
-    // Sort unique tokens numerically before storing them
-    uniqueTokens.sort((a, b) => a - b);
+    const vUniqueTokens = [...new Set(vNormalBillTokens)];
+    vUniqueTokens.sort((a, b) => a - b);
 
-    const results = { vVoucherCount, normalBillCount, eBillCount, normalBillTokens: uniqueTokens };
-    lastResults = results; // Store results
+    const cUniqueTokens = [...new Set(cNormalBillTokens)];
+    cUniqueTokens.sort((a, b) => a - b);
+
+    const results = { 
+        vVoucherCount, vNormalBillCount, vEBillCount, vNormalBillTokens: vUniqueTokens,
+        cVoucherCount, cNormalBillCount, cEBillCount, cNormalBillTokens: cUniqueTokens
+    };
+    lastResults = results;
     displayResults(results);
 }
 
 function displayResults(results) {
-    const { vVoucherCount, normalBillCount, eBillCount, normalBillTokens } = results;
-    // Check the state of the toggle switch
+    const { 
+        vVoucherCount, vNormalBillCount, vEBillCount, vNormalBillTokens,
+        cVoucherCount, cNormalBillCount, cEBillCount, cNormalBillTokens 
+    } = results;
+    
     const shouldIncludeTokens = includeTokensToggle.checked;
+    let resultsHTML = '';
 
-    let summary = `--- Analysis Summary ---\n\n`;
-    summary += `Total 'V' Vouchers Found: ${vVoucherCount}\n\n`;
-    summary += `Breakdown by Bill Type:\n`;
-    summary += ` - Normal Bills: ${normalBillCount}\n`;
-    summary += ` - e-Bills:      ${eBillCount}\n\n`;
+    const createResultCard = (title, totalCount, normalCount, eBillCount, tokens) => {
+        if (totalCount === 0) return ''; // Don't show a card if there are no vouchers of this type
 
-    // Conditionally add the token numbers based on the toggle's state
-    if (shouldIncludeTokens) {
-        if (normalBillTokens && normalBillTokens.length > 0) {
-            summary += `Token Numbers for Normal Vouchers:\n`;
-            summary += ` ${normalBillTokens.join(', ')}\n`;
-        } else if (normalBillCount > 0) {
-             summary += `Token Numbers for Normal Vouchers:\n`;
-             summary += ` (No token numbers could be identified in the report)\n`
+        let tokenHTML = '';
+        if (shouldIncludeTokens && normalCount > 0) {
+            tokenHTML += `<div class="mt-4 pt-3 border-t border-slate-200">
+                            <h4 class="font-semibold text-slate-600 mb-2">Token Numbers for Normal Bills</h4>`;
+            if (tokens && tokens.length > 0) {
+                tokenHTML += `<div class="flex flex-wrap gap-2">
+                                ${tokens.map(token => `<span class="bg-blue-100 text-blue-800 text-xs font-mono font-medium px-2.5 py-1 rounded-full">${token}</span>`).join('')}
+                             </div>`;
+            } else {
+                tokenHTML += `<p class="text-sm text-slate-500 italic">(No token numbers could be identified)</p>`;
+            }
+            tokenHTML += `</div>`;
         }
+
+        return `
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 animate-fade-in">
+                <h3 class="text-lg font-bold text-slate-700 mb-3">${title}</h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-600">Total Vouchers Found:</span>
+                        <span class="font-bold text-slate-800 text-base">${totalCount}</span>
+                    </div>
+                    <div class="flex justify-between items-center pl-4">
+                        <span class="text-slate-500">- Normal Bills:</span>
+                        <span class="font-medium text-slate-600">${normalCount}</span>
+                    </div>
+                    <div class="flex justify-between items-center pl-4">
+                        <span class="text-slate-500">- e-Bills:</span>
+                        <span class="font-medium text-slate-600">${eBillCount}</span>
+                    </div>
+                </div>
+                ${tokenHTML}
+            </div>
+        `;
+    };
+
+    resultsHTML += createResultCard("NCDDO Analysis (V Vouchers)", vVoucherCount, vNormalBillCount, vEBillCount, vNormalBillTokens);
+    resultsHTML += createResultCard("CDDO Analysis (C Vouchers)", cVoucherCount, cNormalBillCount, cEBillCount, cNormalBillTokens);
+
+    if (vVoucherCount === 0 && cVoucherCount === 0) {
+        resultsHTML = `
+            <div class="text-center py-10 animate-fade-in">
+                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 class="mt-2 text-lg font-medium text-slate-800">No Vouchers Found</h3>
+                <p class="mt-1 text-sm text-slate-500">The analyzer could not find any 'V' or 'C' vouchers in the provided file.</p>
+            </div>
+        `;
     }
 
-    resultsArea.textContent = summary;
+    resultsArea.innerHTML = resultsHTML;
     updateStatus('Analysis complete.', 'success');
 }

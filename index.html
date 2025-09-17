@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PFMS Report Analyzer</title>
+    <title>Bill Counting Tool</title>
     
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -22,8 +22,8 @@
         
         <!-- Header -->
         <div class="text-center">
-            <h1 class="text-3xl font-bold text-slate-800">PFMS Report Analyzer</h1>
-            <p class="text-slate-500 mt-1">Upload an XML, PDF, or Excel report to begin.</p>
+            <h1 class="text-3xl font-bold text-slate-800">Bill Counting Tool</h1>
+            <p class="text-slate-500 mt-1">Upload an XML to analyze bill counts.</p>
         </div>
 
         <!-- File Upload Section -->
@@ -64,8 +64,8 @@
                     </label>
                 </div>
             </div>
-            <div class="w-full h-80 bg-white border border-slate-200 rounded-md p-4 overflow-auto">
-                <pre id="resultsArea" class="text-sm text-slate-800 whitespace-pre-wrap" style="font-family: 'Source Code Pro', monospace;"></pre>
+            <div id="resultsArea" class="w-full min-h-[20rem] bg-white border border-slate-200 rounded-md p-4 overflow-auto space-y-4">
+                <!-- Analysis results will be dynamically injected here -->
             </div>
             <p class="text-xs text-slate-500 mt-2 text-center">For 100% accuracy, please use the official XML report. Analysis of PDF/Excel files depends on consistent document formatting.</p>
         </div>
