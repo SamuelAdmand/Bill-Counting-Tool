@@ -1,4 +1,7 @@
-# PFMS Report Analyzer
+# Bill Counting Tool
+
+## Introduction
+
 
 A browser-based utility to quickly parse and analyze Public Financial Management System (PFMS) reports. This tool categorizes vouchers, differentiates between bill types, and extracts token numbers from XML, PDF, and Excel files.
 
@@ -17,7 +20,7 @@ A browser-based utility to quickly parse and analyze Public Financial Management
 
 ## How to Use
 
-1.  **Visit the website:** [Open the PFMS Report Analyzer](https://samueladmand.github.io/Bill-Counting-Tool/).
+1.  **Visit the website:** [Open the Bill Counting Tool](https://samueladmand.github.io/Bill-Counting-Tool/).
 2.  **Upload File:** Drag and drop your report file or click to select it.
 3.  **Analyze:** Click the "Analyze Report" button.
 4.  **View Results:** Instantly see a formatted summary of your report.
