@@ -318,8 +318,8 @@ function generatePdfReport() {
         return;
     }
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+    // FIX: Use the more direct constructor call to prevent initialization errors.
+    const doc = new window.jspdf.jsPDF();
     const { vNormalBills, vEBills, cNormalBills, cEBills, issueDate } = lastAnalysisResults;
 
     // --- Data Preparation ---
@@ -331,7 +331,7 @@ function generatePdfReport() {
 
     const data = {
         eBillsNCDDO: { passed: vEBills.length, returned: getInputValue('returned-ebills-ncddo') },
-        eBillsCDDO: { passed: cEBills.length, returned: getInputValue('returned-ebills-cdddo') },
+        eBillsCDDO: { passed: cEBills.length, returned: getInputValue('returned-ebills-cddo') },
         normalBillsNCDDO: { passed: vNormalBills.length, returned: getInputValue('returned-normal-ncddo') },
         normalBillsCDDO: { passed: cNormalBills.length, returned: getInputValue('returned-normal-cddo') },
     };
