@@ -11,6 +11,7 @@ const analyzeButton = document.getElementById('analyzeButton');
 const generatePdfButton = document.getElementById('generatePdfButton');
 const statusLabel = document.getElementById('status');
 const resultsArea = document.getElementById('resultsArea');
+const returnedBillsSection = document.getElementById('returnedBillsSection');
 
 let selectedFile1 = null;
 let selectedFile2 = null;
@@ -54,6 +55,7 @@ function handleFile(file, fileNumber) {
     // Reset on new file selection
     lastAnalysisResults = null;
     generatePdfButton.disabled = true;
+    returnedBillsSection.classList.add('hidden');
     checkFilesReady();
 }
 
@@ -87,6 +89,7 @@ async function analyzeFiles() {
     updateStatus('Processing files...', 'processing');
     analyzeButton.disabled = true;
     generatePdfButton.disabled = true;
+    returnedBillsSection.classList.add('hidden');
     resultsArea.innerHTML = '<p class="text-center text-slate-500">Analyzing... please wait.</p>';
 
     try {
@@ -103,6 +106,7 @@ async function analyzeFiles() {
         lastAnalysisResults = reconcileData(paymentAuthData, sanctionTEData);
         displayResults(lastAnalysisResults);
         generatePdfButton.disabled = false; // Enable PDF button on success
+        returnedBillsSection.classList.remove('hidden'); // Show returned bills section
 
     } catch (error) {
         console.error('Analysis Error:', error);
@@ -319,11 +323,13 @@ function generatePdfReport() {
 
     // --- Data Preparation ---
     const today = new Date().toLocaleDateString('en-GB');
+    const getInputValue = (id) => parseInt(document.getElementById(id).value, 10) || 0;
+
     const data = {
-        eBillsNCDDO: { passed: vEBills.length, returned: 0 },
-        eBillsCDDO: { passed: cEBills.length, returned: 0 },
-        normalBillsNCDDO: { passed: vNormalBills.length, returned: 0 },
-        normalBillsCDDO: { passed: cNormalBills.length, returned: 0 },
+        eBillsNCDDO: { passed: vEBills.length, returned: getInputValue('returned-ebills-ncddo') },
+        eBillsCDDO: { passed: cEBills.length, returned: getInputValue('returned-ebills-cddo') },
+        normalBillsNCDDO: { passed: vNormalBills.length, returned: getInputValue('returned-normal-ncddo') },
+        normalBillsCDDO: { passed: cNormalBills.length, returned: getInputValue('returned-normal-cddo') },
     };
 
     const getRemarks = (bills) => {
@@ -351,14 +357,12 @@ function generatePdfReport() {
     doc.text("Daily Status Report of E. Bills", 105, 27, { align: "center" });
     doc.text(`Date: ${today}`, 20, 40);
 
-    // Table Drawing
     const tableX = 20;
     const tableY = 50;
     const rowHeight = 20;
     const colWidths = [60, 25, 25, 25, 35];
     const headers = ["Type of Bills", "Passed", "Returned", "Total", "Remarks"];
 
-    // Draw Header
     doc.setFont("helvetica", "bold");
     headers.forEach((header, i) => {
         const xPos = tableX + colWidths.slice(0, i).reduce((a, b) => a + b, 0);
@@ -366,7 +370,6 @@ function generatePdfReport() {
         doc.text(header, xPos + colWidths[i] / 2, tableY + 6, { align: "center" });
     });
 
-    // Draw Rows
     doc.setFont("helvetica", "normal");
     const rows = [
         ["E. Bills- NCDDO", data.eBillsNCDDO.passed, data.eBillsNCDDO.returned, data.eBillsNCDDO.passed + data.eBillsNCDDO.returned, ""],
@@ -380,7 +383,6 @@ function generatePdfReport() {
         row.forEach((cell, colIndex) => {
             const xPos = tableX + colWidths.slice(0, colIndex).reduce((a, b) => a + b, 0);
             doc.rect(xPos, yPos, colWidths[colIndex], rowHeight);
-            // For remarks, use splitTextToSize for wrapping
             if (colIndex === 4) {
                  const textLines = doc.splitTextToSize(String(cell), colWidths[colIndex] - 4);
                  doc.text(textLines, xPos + 2, yPos + 5);
@@ -390,7 +392,6 @@ function generatePdfReport() {
         });
     });
 
-    // Footer
     doc.setFont("helvetica", "bold");
     doc.text(`Percentage of E. Bills being passed: ${percentage}%`, 20, tableY + 10 + (4 * rowHeight) + 10);
     
