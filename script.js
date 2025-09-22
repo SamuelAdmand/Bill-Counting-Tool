@@ -108,27 +108,32 @@ function parsePaymentAuthXML(xmlDoc) {
     if (xmlDoc.getElementsByTagName("parsererror").length) {
         throw new Error("Failed to parse E-Payment Authorization Register. It may be corrupted.");
     }
-    const vouchers = Array.from(xmlDoc.getElementsByTagName('VoucherNumber'));
     const allVouchers = [];
+    const ddoNodes = Array.from(xmlDoc.getElementsByTagName('DDOCode'));
 
-    for (const voucher of vouchers) {
-        const voucherNumberStr = String(voucher.getAttribute('VoucherNumber')).trim().split(/[\s\r\n]+/)[0];
-        const detailsList = voucher.getElementsByTagName('Details');
-        const isNormal = Array.from(detailsList).some(d => d.getAttribute('billType') === 'Normal');
-        const billType = isNormal ? 'Normal' : 'e-Bill';
-        
-        let token = null;
-        let userNm = null;
+    for (const ddoNode of ddoNodes) {
+        const ddoInfo = ddoNode.getAttribute('DDOCode') || '';
+        const voucherNodes = Array.from(ddoNode.getElementsByTagName('VoucherNumber'));
 
-        if (isNormal) {
-            const tokenEl = voucher.getElementsByTagName('TokenNumber')[0];
-            token = tokenEl ? String(tokenEl.getAttribute('TokenNumber')).trim().split(/[\s\r\n]+/)[0] : null;
-            const firstDetail = detailsList[0];
-            userNm = firstDetail ? firstDetail.getAttribute('UserNm') : null;
-        }
-        
-        if (voucherNumberStr) {
-            allVouchers.push({ voucherNumber: voucherNumberStr, billType, token, userNm });
+        for (const voucher of voucherNodes) {
+            const voucherNumberStr = String(voucher.getAttribute('VoucherNumber')).trim().split(/[\s\r\n]+/)[0];
+            const detailsList = voucher.getElementsByTagName('Details');
+            const isNormal = Array.from(detailsList).some(d => d.getAttribute('billType') === 'Normal');
+            const billType = isNormal ? 'Normal' : 'e-Bill';
+            
+            let token = null;
+            let userNm = null;
+
+            if (isNormal) {
+                const tokenEl = voucher.getElementsByTagName('TokenNumber')[0];
+                token = tokenEl ? String(tokenEl.getAttribute('TokenNumber')).trim().split(/[\s\r\n]+/)[0] : null;
+                const firstDetail = detailsList[0];
+                userNm = firstDetail ? firstDetail.getAttribute('UserNm') : null;
+            }
+            
+            if (voucherNumberStr) {
+                allVouchers.push({ voucherNumber: voucherNumberStr, billType, token, userNm, ddoInfo });
+            }
         }
     }
     return allVouchers;
@@ -178,12 +183,40 @@ function parseSanctionTEDetailsXML(xmlDoc) {
     return voucherDetailsMap;
 }
 
-function getCategoryFromUserNm(userNm) {
-    if (!userNm) return null;
-    if (userNm.includes('[GPFEIS]')) return 'GPF';
-    if (userNm.includes('[GEM]')) return 'Gem(Outer)';
-    if (userNm.includes('[EIS]')) return 'Salary(EIS)';
-    return null;
+function getCategory(voucher, sanctionTEData) {
+    const { userNm, ddoInfo, voucherNumber } = voucher;
+
+    // Step 2: The Specific Gem(Outer) Check
+    if (userNm && userNm.includes('[GEM]')) {
+        const isOuterDDO = /JAMMU|SRINAGAR|CHANDIGARH|DEHRADUN/i.test(ddoInfo);
+        if (isOuterDDO) {
+            return 'Gem(Outer)';
+        }
+    }
+
+    // Step 3: The Standard Three-Tier Reconciliation
+    // Tier 1: UserNm
+    if (userNm) {
+        if (userNm.includes('[GPFEIS]')) return 'GPF';
+        if (userNm.includes('[EIS]')) return 'Salary(EIS)';
+        // Handle non-outer GEM bills here if needed, or let them fall through
+        if (userNm.includes('[GEM]')) return 'Gem'; 
+    }
+
+    // Tiers 2 & 3: Sanction TE Details
+    const details = sanctionTEData.get(voucherNumber);
+    if (details) {
+        // Tier 2: Object Head
+        if (details.objectHeads.length > 0) {
+            return details.objectHeads.join(', ');
+        } 
+        // Tier 3: Functional Head
+        if (details.funcHeads.length > 0) {
+            return details.funcHeads.join(', ');
+        }
+    }
+
+    return 'Category Not Found';
 }
 
 function reconcileData(paymentAuthData, sanctionTEData) {
@@ -191,25 +224,7 @@ function reconcileData(paymentAuthData, sanctionTEData) {
 
     for (const voucher of paymentAuthData) {
         if (voucher.billType === 'Normal') {
-            // Tier 1: Check UserNm
-            let category = getCategoryFromUserNm(voucher.userNm);
-
-            // If Tier 1 fails, check Tiers 2 and 3
-            if (!category) {
-                const details = sanctionTEData.get(voucher.voucherNumber);
-                if (details) {
-                    // Tier 2: Object Head
-                    if (details.objectHeads.length > 0) {
-                        category = details.objectHeads.join(', ');
-                    } 
-                    // Tier 3: Functional Head
-                    else if (details.funcHeads.length > 0) {
-                        category = details.funcHeads.join(', ');
-                    }
-                }
-            }
-            
-            voucher.category = category || 'Category Not Found';
+            voucher.category = getCategory(voucher, sanctionTEData);
         }
 
         if (voucher.voucherNumber.startsWith('V')) {
