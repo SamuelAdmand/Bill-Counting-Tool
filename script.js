@@ -318,7 +318,6 @@ function generatePdfReport() {
         return;
     }
 
-    // FIX: Use the more direct constructor call to prevent initialization errors.
     const doc = new window.jspdf.jsPDF();
     const { vNormalBills, vEBills, cNormalBills, cEBills, issueDate } = lastAnalysisResults;
 
@@ -363,19 +362,23 @@ function generatePdfReport() {
     doc.text(`Date: ${reportDate}`, 20, 40);
 
     const tableX = 20;
-    const tableY = 50;
-    const rowHeight = 20;
+    const headerY = 50;
     const colWidths = [60, 25, 25, 25, 35];
     const headers = ["Type of Bills", "Passed", "Returned", "Total", "Remarks"];
+    const headerHeight = 10;
+    const verticalPadding = 5;
+    const lineHeight = 5; // Approximate height for a line of text
 
     doc.setFont("helvetica", "bold");
     headers.forEach((header, i) => {
         const xPos = tableX + colWidths.slice(0, i).reduce((a, b) => a + b, 0);
-        doc.rect(xPos, tableY, colWidths[i], 10);
-        doc.text(header, xPos + colWidths[i] / 2, tableY + 6, { align: "center" });
+        doc.rect(xPos, headerY, colWidths[i], headerHeight);
+        doc.text(header, xPos + colWidths[i] / 2, headerY + headerHeight / 2 + 2, { align: "center" });
     });
 
     doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    
     const rows = [
         ["E. Bills- NCDDO", data.eBillsNCDDO.passed, data.eBillsNCDDO.returned, data.eBillsNCDDO.passed + data.eBillsNCDDO.returned, ""],
         ["E. Bills- CDDO", data.eBillsCDDO.passed, data.eBillsCDDO.returned, data.eBillsCDDO.passed + data.eBillsCDDO.returned, ""],
@@ -383,27 +386,38 @@ function generatePdfReport() {
         ["Normal Bills- CDDO", data.normalBillsCDDO.passed, data.normalBillsCDDO.returned, data.normalBillsCDDO.passed + data.normalBillsCDDO.returned, data.normalBillsCDDO.remarks],
     ];
 
-    rows.forEach((row, rowIndex) => {
-        const yPos = tableY + 10 + (rowIndex * rowHeight);
+    let currentY = headerY + headerHeight;
+
+    rows.forEach((row) => {
+        // Calculate dynamic row height based on remarks column
+        const remarksText = String(row[4]);
+        const textLines = doc.splitTextToSize(remarksText, colWidths[4] - 4);
+        const calculatedHeight = (textLines.length * lineHeight) + (verticalPadding * 2);
+        const rowHeight = Math.max(15, calculatedHeight); // Set a minimum row height
+
         row.forEach((cell, colIndex) => {
             const xPos = tableX + colWidths.slice(0, colIndex).reduce((a, b) => a + b, 0);
-            doc.rect(xPos, yPos, colWidths[colIndex], rowHeight);
-            if (colIndex === 4) {
-                 const textLines = doc.splitTextToSize(String(cell), colWidths[colIndex] - 4);
-                 doc.text(textLines, xPos + 2, yPos + 5);
-            } else {
-                 doc.text(String(cell), xPos + colWidths[colIndex] / 2, yPos + rowHeight / 2, { align: "center" });
+            doc.rect(xPos, currentY, colWidths[colIndex], rowHeight);
+            
+            if (colIndex === 4) { // Remarks column with wrapping
+                 doc.text(textLines, xPos + 2, currentY + verticalPadding);
+            } else { // Other columns, vertically centered
+                 doc.text(String(cell), xPos + colWidths[colIndex] / 2, currentY + rowHeight / 2 + 2, { align: "center" });
             }
         });
+        currentY += rowHeight;
     });
 
+    // Footer position is now dynamic
+    const footerY = currentY + 10;
     doc.setFont("helvetica", "bold");
-    doc.text(`Percentage of E. Bills being passed: ${percentage}`, 20, tableY + 10 + (4 * rowHeight) + 10);
+    doc.setFontSize(11);
+    doc.text(`Percentage of E. Bills being passed: ${percentage}`, 20, footerY);
     
     doc.setFont("helvetica", "normal");
-    doc.text("Sr. Account Officer", 180, tableY + 10 + (4 * rowHeight) + 30, { align: "right" });
-    doc.text("PAO, GSI(NR)", 180, tableY + 10 + (4 * rowHeight) + 35, { align: "right" });
-    doc.text("Lucknow", 180, tableY + 10 + (4 * rowHeight) + 40, { align: "right" });
+    doc.text("Sr. Account Officer", 190, footerY + 20, { align: "right" });
+    doc.text("PAO, GSI(NR)", 190, footerY + 25, { align: "right" });
+    doc.text("Lucknow", 190, footerY + 30, { align: "right" });
 
     doc.save(`Daily_Status_Report_${reportDate.replace(/\//g, '-')}.pdf`);
 }
