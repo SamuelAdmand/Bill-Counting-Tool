@@ -11,7 +11,7 @@ const analyzeButton = document.getElementById('analyzeButton');
 const generatePdfButton = document.getElementById('generatePdfButton');
 const statusLabel = document.getElementById('status');
 const resultsArea = document.getElementById('resultsArea');
-const returnedBillsSection = document.getElementById('returnedBillsSection');
+const manualInputSection = document.getElementById('manualInputSection');
 
 let selectedFile1 = null;
 let selectedFile2 = null;
@@ -55,7 +55,7 @@ function handleFile(file, fileNumber) {
     // Reset on new file selection
     lastAnalysisResults = null;
     generatePdfButton.disabled = true;
-    returnedBillsSection.classList.add('hidden');
+    manualInputSection.classList.add('hidden');
     checkFilesReady();
 }
 
@@ -89,7 +89,7 @@ async function analyzeFiles() {
     updateStatus('Processing files...', 'processing');
     analyzeButton.disabled = true;
     generatePdfButton.disabled = true;
-    returnedBillsSection.classList.add('hidden');
+    manualInputSection.classList.add('hidden');
     resultsArea.innerHTML = '<p class="text-center text-slate-500">Analyzing... please wait.</p>';
 
     try {
@@ -105,8 +105,17 @@ async function analyzeFiles() {
 
         lastAnalysisResults = reconcileData(paymentAuthData, sanctionTEData);
         displayResults(lastAnalysisResults);
+        
+        // Pre-fill calculated percentage
+        const { vNormalBills, vEBills, cNormalBills, cEBills } = lastAnalysisResults;
+        const totalPassedEBills = vEBills.length + cEBills.length;
+        const totalPassedBills = totalPassedEBills + vNormalBills.length + cNormalBills.length;
+        const percentage = totalPassedBills > 0 ? ((totalPassedEBills / totalPassedBills) * 100).toFixed(2) : "0.00";
+        document.getElementById('percentage-override').value = `${percentage}%`;
+
+
         generatePdfButton.disabled = false; // Enable PDF button on success
-        returnedBillsSection.classList.remove('hidden'); // Show returned bills section
+        manualInputSection.classList.remove('hidden'); // Show returned bills section
 
     } catch (error) {
         console.error('Analysis Error:', error);
@@ -149,7 +158,12 @@ function parsePaymentAuthXML(xmlDoc) {
             }
         }
     }
-    return allVouchers;
+    
+    const issueDateNode = xmlDoc.querySelector('IssueDate[IssueDate]');
+    const issueDateAttr = issueDateNode ? issueDateNode.getAttribute('IssueDate') : '';
+    const issueDate = issueDateAttr.replace('Issue Date:', '').trim().replace(/-/g, '/');
+
+    return { vouchers: allVouchers, issueDate };
 }
 
 function parseSanctionTEDetailsXML(xmlDoc) {
@@ -222,7 +236,7 @@ function getCategory(voucher, sanctionTEData) {
 function reconcileData(paymentAuthData, sanctionTEData) {
     let vNormalBills = [], vEBills = [], cNormalBills = [], cEBills = [];
 
-    for (const voucher of paymentAuthData) {
+    for (const voucher of paymentAuthData.vouchers) {
         if (voucher.billType === 'Normal') {
             voucher.category = getCategory(voucher, sanctionTEData);
         }
@@ -240,7 +254,7 @@ function reconcileData(paymentAuthData, sanctionTEData) {
     vNormalBills.sort(sortByToken);
     cNormalBills.sort(sortByToken);
 
-    return { vNormalBills, vEBills, cNormalBills, cEBills };
+    return { vNormalBills, vEBills, cNormalBills, cEBills, issueDate: paymentAuthData.issueDate };
 }
 
 function displayResults(results) {
@@ -319,10 +333,10 @@ function generatePdfReport() {
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    const { vNormalBills, vEBills, cNormalBills, cEBills } = lastAnalysisResults;
+    const { vNormalBills, vEBills, cNormalBills, cEBills, issueDate } = lastAnalysisResults;
 
     // --- Data Preparation ---
-    const today = new Date().toLocaleDateString('en-GB');
+    const reportDate = issueDate || new Date().toLocaleDateString('en-GB');
     const getInputValue = (id) => parseInt(document.getElementById(id).value, 10) || 0;
 
     const data = {
@@ -344,9 +358,10 @@ function generatePdfReport() {
     data.normalBillsNCDDO.remarks = getRemarks(vNormalBills);
     data.normalBillsCDDO.remarks = getRemarks(cNormalBills);
 
-    const totalPassedEBills = data.eBillsNCDDO.passed + data.eBillsCDDO.passed;
-    const totalPassedBills = totalPassedEBills + data.normalBillsNCDDO.passed + data.normalBillsCDDO.passed;
-    const percentage = totalPassedBills > 0 ? ((totalPassedEBills / totalPassedBills) * 100).toFixed(2) : "0.00";
+    let percentage = document.getElementById('percentage-override').value.trim();
+    if (!percentage.endsWith('%')) {
+        percentage += '%';
+    }
 
     // --- PDF Generation ---
     doc.setFont("helvetica", "bold");
@@ -355,7 +370,7 @@ function generatePdfReport() {
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.text("Daily Status Report of E. Bills", 105, 27, { align: "center" });
-    doc.text(`Date: ${today}`, 20, 40);
+    doc.text(`Date: ${reportDate}`, 20, 40);
 
     const tableX = 20;
     const tableY = 50;
@@ -393,12 +408,12 @@ function generatePdfReport() {
     });
 
     doc.setFont("helvetica", "bold");
-    doc.text(`Percentage of E. Bills being passed: ${percentage}%`, 20, tableY + 10 + (4 * rowHeight) + 10);
+    doc.text(`Percentage of E. Bills being passed: ${percentage}`, 20, tableY + 10 + (4 * rowHeight) + 10);
     
     doc.setFont("helvetica", "normal");
     doc.text("Sr. Account Officer", 180, tableY + 10 + (4 * rowHeight) + 30, { align: "right" });
     doc.text("PAO, GSI(NR)", 180, tableY + 10 + (4 * rowHeight) + 35, { align: "right" });
     doc.text("Lucknow", 180, tableY + 10 + (4 * rowHeight) + 40, { align: "right" });
 
-    doc.save(`Daily_Status_Report_${today}.pdf`);
+    doc.save(`Daily_Status_Report_${reportDate.replace(/\//g, '-')}.pdf`);
 }
