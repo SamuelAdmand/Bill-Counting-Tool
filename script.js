@@ -159,11 +159,25 @@ function parsePaymentAuthXML(xmlDoc) {
         }
     }
     
-    const issueDateNode = xmlDoc.querySelector('IssueDate[IssueDate]');
-    const issueDateAttr = issueDateNode ? issueDateNode.getAttribute('IssueDate') : '';
-    const issueDate = issueDateAttr.replace('Issue Date:', '').trim().replace(/-/g, '/');
+    // FIX: Extract the start date from the date range attribute
+    let reportDate = '';
+    const dateRangeNode = xmlDoc.querySelector('Tablix2');
+    if (dateRangeNode) {
+        // The attribute name is Textbox21 in the first file, and Textbox58 in the second. Check both.
+        const dateRangeAttr = dateRangeNode.getAttribute('Textbox21') || dateRangeNode.getAttribute('Textbox58');
+        if (dateRangeAttr) {
+            reportDate = dateRangeAttr.split(' till ')[0].trim().replace(/-/g, '/');
+        }
+    }
 
-    return { vouchers: allVouchers, issueDate };
+    // Fallback if the primary date range attribute is not found
+    if (!reportDate) {
+        const issueDateNode = xmlDoc.querySelector('IssueDate[IssueDate]');
+        const issueDateAttr = issueDateNode ? issueDateNode.getAttribute('IssueDate') : '';
+        reportDate = issueDateAttr.replace('Issue Date:', '').trim().replace(/-/g, '/');
+    }
+
+    return { vouchers: allVouchers, issueDate: reportDate };
 }
 
 function parseSanctionTEDetailsXML(xmlDoc) {
