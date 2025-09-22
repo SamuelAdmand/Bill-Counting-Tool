@@ -262,19 +262,6 @@ function displayResults(results) {
     
     let resultsHTML = '';
     const totalVouchers = vNormalBills.length + vEBills.length + cNormalBills.length + cEBills.length;
-    const totalEBills = vEBills.length + cEBills.length;
-    const eBillPercentage = totalVouchers > 0 ? ((totalEBills / totalVouchers) * 100).toFixed(2) : 0;
-
-    if (totalVouchers > 0) {
-        resultsHTML += `
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 animate-fade-in mb-4">
-                <h3 class="text-lg font-bold text-blue-800 mb-3">Overall Summary</h3>
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between items-center"><span class="text-blue-700">Total e-Bills:</span><span class="font-bold text-blue-900 text-base">${totalEBills}</span></div>
-                    <div class="flex justify-between items-center"><span class="text-blue-700">e-Bill Percentage:</span><span class="font-bold text-blue-900 text-base">${eBillPercentage}%</span></div>
-                </div>
-            </div>`;
-    }
 
     const createResultCard = (title, normalBills, eBillCount) => {
         const totalCount = normalBills.length + eBillCount;
@@ -359,7 +346,7 @@ function generatePdfReport() {
     data.normalBillsCDDO.remarks = getRemarks(cNormalBills);
 
     let percentage = document.getElementById('percentage-override').value.trim();
-    if (!percentage.endsWith('%')) {
+    if (percentage && !percentage.endsWith('%')) {
         percentage += '%';
     }
 
