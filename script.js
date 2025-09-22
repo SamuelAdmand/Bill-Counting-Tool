@@ -8,11 +8,13 @@ const fileInput2 = document.getElementById('fileInput2');
 const filePath2 = document.getElementById('filePath2');
 
 const analyzeButton = document.getElementById('analyzeButton');
+const generatePdfButton = document.getElementById('generatePdfButton');
 const statusLabel = document.getElementById('status');
 const resultsArea = document.getElementById('resultsArea');
 
 let selectedFile1 = null;
 let selectedFile2 = null;
+let lastAnalysisResults = null; // Store the results for PDF generation
 
 // --- Event Listeners ---
 function setupEventListeners(dropZone, fileInput, fileHandler) {
@@ -31,6 +33,7 @@ function setupEventListeners(dropZone, fileInput, fileHandler) {
 setupEventListeners(dropZone1, fileInput1, (file) => handleFile(file, 1));
 setupEventListeners(dropZone2, fileInput2, (file) => handleFile(file, 2));
 analyzeButton.addEventListener('click', analyzeFiles);
+generatePdfButton.addEventListener('click', generatePdfReport);
 
 
 // --- Core Functions ---
@@ -47,6 +50,10 @@ function handleFile(file, fileNumber) {
         selectedFile2 = file;
         filePath2.textContent = `Selected: ${file.name}`;
     }
+    
+    // Reset on new file selection
+    lastAnalysisResults = null;
+    generatePdfButton.disabled = true;
     checkFilesReady();
 }
 
@@ -79,6 +86,7 @@ async function analyzeFiles() {
     }
     updateStatus('Processing files...', 'processing');
     analyzeButton.disabled = true;
+    generatePdfButton.disabled = true;
     resultsArea.innerHTML = '<p class="text-center text-slate-500">Analyzing... please wait.</p>';
 
     try {
@@ -92,8 +100,9 @@ async function analyzeFiles() {
         const xmlDoc2 = parser.parseFromString(xmlString2, "application/xml");
         const sanctionTEData = parseSanctionTEDetailsXML(xmlDoc2);
 
-        const finalResults = reconcileData(paymentAuthData, sanctionTEData);
-        displayResults(finalResults);
+        lastAnalysisResults = reconcileData(paymentAuthData, sanctionTEData);
+        displayResults(lastAnalysisResults);
+        generatePdfButton.disabled = false; // Enable PDF button on success
 
     } catch (error) {
         console.error('Analysis Error:', error);
@@ -186,34 +195,21 @@ function parseSanctionTEDetailsXML(xmlDoc) {
 function getCategory(voucher, sanctionTEData) {
     const { userNm, ddoInfo, voucherNumber } = voucher;
 
-    // Step 2: The Specific Gem(Outer) Check
     if (userNm && userNm.includes('[GEM]')) {
         const isOuterDDO = /JAMMU|SRINAGAR|CHANDIGARH|DEHRADUN/i.test(ddoInfo);
-        if (isOuterDDO) {
-            return 'Gem(Outer)';
-        }
+        if (isOuterDDO) return 'Gem(Outer)';
     }
 
-    // Step 3: The Standard Three-Tier Reconciliation
-    // Tier 1: UserNm
     if (userNm) {
         if (userNm.includes('[GPFEIS]')) return 'GPF';
         if (userNm.includes('[EIS]')) return 'Salary(EIS)';
-        // Handle non-outer GEM bills here if needed, or let them fall through
         if (userNm.includes('[GEM]')) return 'Gem'; 
     }
 
-    // Tiers 2 & 3: Sanction TE Details
     const details = sanctionTEData.get(voucherNumber);
     if (details) {
-        // Tier 2: Object Head
-        if (details.objectHeads.length > 0) {
-            return details.objectHeads.join(', ');
-        } 
-        // Tier 3: Functional Head
-        if (details.funcHeads.length > 0) {
-            return details.funcHeads.join(', ');
-        }
+        if (details.objectHeads.length > 0) return details.objectHeads.join(', ');
+        if (details.funcHeads.length > 0) return details.funcHeads.join(', ');
     }
 
     return 'Category Not Found';
@@ -309,4 +305,99 @@ function displayResults(results) {
 
     resultsArea.innerHTML = resultsHTML;
     updateStatus('Analysis complete.', 'success');
+}
+
+function generatePdfReport() {
+    if (!lastAnalysisResults) {
+        alert("Please analyze the reports first before generating a PDF.");
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const { vNormalBills, vEBills, cNormalBills, cEBills } = lastAnalysisResults;
+
+    // --- Data Preparation ---
+    const today = new Date().toLocaleDateString('en-GB');
+    const data = {
+        eBillsNCDDO: { passed: vEBills.length, returned: 0 },
+        eBillsCDDO: { passed: cEBills.length, returned: 0 },
+        normalBillsNCDDO: { passed: vNormalBills.length, returned: 0 },
+        normalBillsCDDO: { passed: cNormalBills.length, returned: 0 },
+    };
+
+    const getRemarks = (bills) => {
+        if (bills.length === 0) return '';
+        const counts = bills.reduce((acc, bill) => {
+            acc[bill.category] = (acc[bill.category] || 0) + 1;
+            return acc;
+        }, {});
+        return Object.entries(counts).map(([cat, count]) => `${cat}: ${count}`).join(', ');
+    };
+
+    data.normalBillsNCDDO.remarks = getRemarks(vNormalBills);
+    data.normalBillsCDDO.remarks = getRemarks(cNormalBills);
+
+    const totalPassedEBills = data.eBillsNCDDO.passed + data.eBillsCDDO.passed;
+    const totalPassedBills = totalPassedEBills + data.normalBillsNCDDO.passed + data.normalBillsCDDO.passed;
+    const percentage = totalPassedBills > 0 ? ((totalPassedEBills / totalPassedBills) * 100).toFixed(2) : "0.00";
+
+    // --- PDF Generation ---
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("PAO, GSI(NR),Lucknow", 105, 20, { align: "center" });
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text("Daily Status Report of E. Bills", 105, 27, { align: "center" });
+    doc.text(`Date: ${today}`, 20, 40);
+
+    // Table Drawing
+    const tableX = 20;
+    const tableY = 50;
+    const rowHeight = 20;
+    const colWidths = [60, 25, 25, 25, 35];
+    const headers = ["Type of Bills", "Passed", "Returned", "Total", "Remarks"];
+
+    // Draw Header
+    doc.setFont("helvetica", "bold");
+    headers.forEach((header, i) => {
+        const xPos = tableX + colWidths.slice(0, i).reduce((a, b) => a + b, 0);
+        doc.rect(xPos, tableY, colWidths[i], 10);
+        doc.text(header, xPos + colWidths[i] / 2, tableY + 6, { align: "center" });
+    });
+
+    // Draw Rows
+    doc.setFont("helvetica", "normal");
+    const rows = [
+        ["E. Bills- NCDDO", data.eBillsNCDDO.passed, data.eBillsNCDDO.returned, data.eBillsNCDDO.passed + data.eBillsNCDDO.returned, ""],
+        ["E. Bills- CDDO", data.eBillsCDDO.passed, data.eBillsCDDO.returned, data.eBillsCDDO.passed + data.eBillsCDDO.returned, ""],
+        ["Normal Bills- NCDDO", data.normalBillsNCDDO.passed, data.normalBillsNCDDO.returned, data.normalBillsNCDDO.passed + data.normalBillsNCDDO.returned, data.normalBillsNCDDO.remarks],
+        ["Normal Bills- CDDO", data.normalBillsCDDO.passed, data.normalBillsCDDO.returned, data.normalBillsCDDO.passed + data.normalBillsCDDO.returned, data.normalBillsCDDO.remarks],
+    ];
+
+    rows.forEach((row, rowIndex) => {
+        const yPos = tableY + 10 + (rowIndex * rowHeight);
+        row.forEach((cell, colIndex) => {
+            const xPos = tableX + colWidths.slice(0, colIndex).reduce((a, b) => a + b, 0);
+            doc.rect(xPos, yPos, colWidths[colIndex], rowHeight);
+            // For remarks, use splitTextToSize for wrapping
+            if (colIndex === 4) {
+                 const textLines = doc.splitTextToSize(String(cell), colWidths[colIndex] - 4);
+                 doc.text(textLines, xPos + 2, yPos + 5);
+            } else {
+                 doc.text(String(cell), xPos + colWidths[colIndex] / 2, yPos + rowHeight / 2, { align: "center" });
+            }
+        });
+    });
+
+    // Footer
+    doc.setFont("helvetica", "bold");
+    doc.text(`Percentage of E. Bills being passed: ${percentage}%`, 20, tableY + 10 + (4 * rowHeight) + 10);
+    
+    doc.setFont("helvetica", "normal");
+    doc.text("Sr. Account Officer", 180, tableY + 10 + (4 * rowHeight) + 30, { align: "right" });
+    doc.text("PAO, GSI(NR)", 180, tableY + 10 + (4 * rowHeight) + 35, { align: "right" });
+    doc.text("Lucknow", 180, tableY + 10 + (4 * rowHeight) + 40, { align: "right" });
+
+    doc.save(`Daily_Status_Report_${today}.pdf`);
 }
