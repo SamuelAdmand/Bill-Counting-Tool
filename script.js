@@ -324,11 +324,14 @@ function generatePdfReport() {
 
     // --- Data Preparation ---
     const reportDate = issueDate || new Date().toLocaleDateString('en-GB');
-    const getInputValue = (id) => parseInt(document.getElementById(id).value, 10) || 0;
+    const getInputValue = (id) => {
+        const value = parseInt(document.getElementById(id).value, 10) || 0;
+        return Math.max(0, value); // Ensure value is not negative
+    };
 
     const data = {
         eBillsNCDDO: { passed: vEBills.length, returned: getInputValue('returned-ebills-ncddo') },
-        eBillsCDDO: { passed: cEBills.length, returned: getInputValue('returned-ebills-cddo') },
+        eBillsCDDO: { passed: cEBills.length, returned: getInputValue('returned-ebills-cdddo') },
         normalBillsNCDDO: { passed: vNormalBills.length, returned: getInputValue('returned-normal-ncddo') },
         normalBillsCDDO: { passed: cNormalBills.length, returned: getInputValue('returned-normal-cddo') },
     };
