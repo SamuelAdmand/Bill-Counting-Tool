@@ -94,16 +94,36 @@ async function analyzeFiles() {
 
     try {
         const parser = new DOMParser();
-        
-        // File 1: E-Payment Register (Lookup file)
+
+        // Read both files first
         const xmlString1 = await selectedFile1.text();
         const xmlDoc1 = parser.parseFromString(xmlString1, "application/xml");
-        const paymentAuthData = parsePaymentAuthXML(xmlDoc1);
 
-        // File 2: Compilation Sheet (Main source file)
         const xmlString2 = await selectedFile2.text();
         const xmlDoc2 = parser.parseFromString(xmlString2, "application/xml");
-        const compilationData = parseCompilationSheetXML(xmlDoc2);
+
+        // Identify which file is which based on the root element's "Name" attribute
+        let paymentAuthDoc, compilationDoc;
+        const name1 = xmlDoc1.documentElement.getAttribute('Name');
+        const name2 = xmlDoc2.documentElement.getAttribute('Name');
+
+        if (name1 === 'RptSancDig_EPaymentAuthorizationIssueRegister' && name2 === 'RptSancDig_VoucherCompilationSheet') {
+            paymentAuthDoc = xmlDoc1;
+            compilationDoc = xmlDoc2;
+        } else if (name2 === 'RptSancDig_EPaymentAuthorizationIssueRegister' && name1 === 'RptSancDig_VoucherCompilationSheet') {
+            paymentAuthDoc = xmlDoc2;
+            compilationDoc = xmlDoc1;
+        } else {
+            let errorMsg = "Could not identify the report types. Please upload one of each.";
+            if (name1 === name2 && name1) {
+                errorMsg = `Error: Both files appear to be of the same type ('${name1}'). Please upload one of each report.`;
+            }
+            throw new Error(errorMsg);
+        }
+        
+        // Parse the identified documents
+        const paymentAuthData = parsePaymentAuthXML(paymentAuthDoc);
+        const compilationData = parseCompilationSheetXML(compilationDoc);
 
         // Use compilation sheet date as primary, fallback to e-payment date
         const reportDate = compilationData.reportDate || paymentAuthData.issueDate;
@@ -383,7 +403,7 @@ function generatePdfReport() {
         normalBillsCDDO: { passed: cddoNormalBills.length, returned: getInputValue('returned-normal-cddo') },
     };
 
-        const getRemarks = (bills) => {
+    const getRemarks = (bills) => {
         if (bills.length === 0) return '';
         
         const counts = bills.reduce((acc, bill) => {
