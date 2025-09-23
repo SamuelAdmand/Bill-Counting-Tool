@@ -95,24 +95,28 @@ async function analyzeFiles() {
     try {
         const parser = new DOMParser();
         
+        // File 1: E-Payment Register (Lookup file)
         const xmlString1 = await selectedFile1.text();
         const xmlDoc1 = parser.parseFromString(xmlString1, "application/xml");
         const paymentAuthData = parsePaymentAuthXML(xmlDoc1);
 
+        // File 2: Compilation Sheet (Main source file)
         const xmlString2 = await selectedFile2.text();
         const xmlDoc2 = parser.parseFromString(xmlString2, "application/xml");
-        const sanctionTEData = parseSanctionTEDetailsXML(xmlDoc2);
+        const compilationData = parseCompilationSheetXML(xmlDoc2);
 
-        lastAnalysisResults = reconcileData(paymentAuthData, sanctionTEData);
+        // Use compilation sheet date as primary, fallback to e-payment date
+        const reportDate = compilationData.reportDate || paymentAuthData.issueDate;
+
+        lastAnalysisResults = reconcileData(compilationData.vouchers, paymentAuthData.voucherDetailsMap, reportDate);
         displayResults(lastAnalysisResults);
         
         // Pre-fill calculated percentage
-        const { vNormalBills, vEBills, cNormalBills, cEBills } = lastAnalysisResults;
-        const totalPassedEBills = vEBills.length + cEBills.length;
-        const totalPassedBills = totalPassedEBills + vNormalBills.length + cNormalBills.length;
+        const { ncddoNormalBills, ncddoEBills, cddoNormalBills, cddoEBills } = lastAnalysisResults;
+        const totalPassedEBills = ncddoEBills.length + cddoEBills.length;
+        const totalPassedBills = totalPassedEBills + ncddoNormalBills.length + cddoNormalBills.length;
         const percentage = totalPassedBills > 0 ? ((totalPassedEBills / totalPassedBills) * 100).toFixed(2) : "0.00";
         document.getElementById('percentage-override').value = `${percentage}%`;
-
 
         generatePdfButton.disabled = false; // Enable PDF button on success
         manualInputSection.classList.remove('hidden'); // Show returned bills section
@@ -130,152 +134,154 @@ function parsePaymentAuthXML(xmlDoc) {
     if (xmlDoc.getElementsByTagName("parsererror").length) {
         throw new Error("Failed to parse E-Payment Authorization Register. It may be corrupted.");
     }
-    const allVouchers = [];
-    const ddoNodes = Array.from(xmlDoc.getElementsByTagName('DDOCode'));
+    const voucherDetailsMap = new Map();
+    const voucherNodes = Array.from(xmlDoc.getElementsByTagName('VoucherNumber'));
 
-    for (const ddoNode of ddoNodes) {
-        const ddoInfo = ddoNode.getAttribute('DDOCode') || '';
-        const voucherNodes = Array.from(ddoNode.getElementsByTagName('VoucherNumber'));
-
-        for (const voucher of voucherNodes) {
-            const voucherNumberStr = String(voucher.getAttribute('VoucherNumber')).trim().split(/[\s\r\n]+/)[0];
-            const detailsList = voucher.getElementsByTagName('Details');
-            const isNormal = Array.from(detailsList).some(d => d.getAttribute('billType') === 'Normal');
-            const billType = isNormal ? 'Normal' : 'e-Bill';
+    for (const voucher of voucherNodes) {
+        const voucherNumberStr = String(voucher.getAttribute('VoucherNumber')).trim().split(/[\s\r\n]+/)[0];
+        const detailsList = voucher.getElementsByTagName('Details');
+        
+        if (detailsList.length > 0) {
+            const firstDetail = detailsList[0];
+            const billType = firstDetail.getAttribute('billType') || 'Normal';
+            const userNm = firstDetail.getAttribute('UserNm') || null;
             
-            let token = null;
-            let userNm = null;
+            const tokenEl = voucher.getElementsByTagName('TokenNumber')[0];
+            const tokenStr = tokenEl ? tokenEl.getAttribute('TokenNumber') : '';
+            const token = tokenStr ? String(tokenStr).trim().split(/[\s\r\n]+/)[0] : null;
 
-            if (isNormal) {
-                const tokenEl = voucher.getElementsByTagName('TokenNumber')[0];
-                token = tokenEl ? String(tokenEl.getAttribute('TokenNumber')).trim().split(/[\s\r\n]+/)[0] : null;
-                const firstDetail = detailsList[0];
-                userNm = firstDetail ? firstDetail.getAttribute('UserNm') : null;
-            }
-            
             if (voucherNumberStr) {
-                allVouchers.push({ voucherNumber: voucherNumberStr, billType, token, userNm, ddoInfo });
+                voucherDetailsMap.set(voucherNumberStr, { billType, userNm, token });
             }
         }
     }
     
-    // FIX: Extract the start date from the date range attribute
     let reportDate = '';
     const dateRangeNode = xmlDoc.querySelector('Tablix2');
     if (dateRangeNode) {
-        // The attribute name is Textbox21 in the first file, and Textbox58 in the second. Check both.
-        const dateRangeAttr = dateRangeNode.getAttribute('Textbox21') || dateRangeNode.getAttribute('Textbox58');
+        const dateRangeAttr = dateRangeNode.getAttribute('Textbox21');
         if (dateRangeAttr) {
             reportDate = dateRangeAttr.split(' till ')[0].trim().replace(/-/g, '/');
         }
     }
 
-    // Fallback if the primary date range attribute is not found
-    if (!reportDate) {
-        const issueDateNode = xmlDoc.querySelector('IssueDate[IssueDate]');
-        const issueDateAttr = issueDateNode ? issueDateNode.getAttribute('IssueDate') : '';
-        reportDate = issueDateAttr.replace('Issue Date:', '').trim().replace(/-/g, '/');
-    }
-
-    return { vouchers: allVouchers, issueDate: reportDate };
+    return { voucherDetailsMap, issueDate: reportDate };
 }
 
-function parseSanctionTEDetailsXML(xmlDoc) {
+function parseCompilationSheetXML(xmlDoc) {
     if (xmlDoc.getElementsByTagName("parsererror").length) {
-        throw new Error("Failed to parse Sanction TE Details report. It may be corrupted.");
+        throw new Error("Failed to parse Voucher Compilation Sheet. It may be corrupted.");
     }
-    const instrumentNodes = Array.from(xmlDoc.getElementsByTagName('InstrumentNo'));
-    const voucherDetailsMap = new Map();
+    const allVouchers = [];
+    const ddoNodes = Array.from(xmlDoc.getElementsByTagName('DDOName'));
+    const genericTerms = /ELECTRONIC ADVICES|SUSPENSE|CHEQUES|DEFAULT|DEDUCTIONS|CONTRIBUTIONS|GST|PUBLIC ACCOUNT|OTHERS/i;
 
-    for (const node of instrumentNodes) {
-        const instrumentNoAttr = node.getAttribute('InstrumentNo3');
-        const voucherNumberMatch = instrumentNoAttr.match(/:\s*([VC]\d+)/);
-        if (!voucherNumberMatch) continue;
-        
-        const voucherNumber = voucherNumberMatch[1];
-        const detailNodes = Array.from(node.getElementsByTagName('Details2'));
-        const objectHeads = new Set();
-        const funcHeads = new Set();
-        const genericTerms = /ELECTRONIC ADVICES|SUSPENSE|CHEQUES|DEFAULT|DEDUCTIONS|CONTRIBUTIONS|GST|PUBLIC ACCOUNT|OTHERS/i;
+    for (const ddoNode of ddoNodes) {
+        const ddoNameEl = ddoNode.querySelector('Textbox11');
+        const ddoName = ddoNameEl ? ddoNameEl.getAttribute('DDOName') : '';
+        const voucherNodes = Array.from(ddoNode.getElementsByTagName('VoucherNumber'));
 
-        for (const detail of detailNodes) {
-            const objHeadAttr = detail.getAttribute('ObjectHead2');
-            if (objHeadAttr) {
-                const cleanedHead = objHeadAttr.split('-[')[0].trim().toUpperCase();
-                if (cleanedHead && !genericTerms.test(cleanedHead)) {
-                    objectHeads.add(cleanedHead);
+        for (const voucherNode of voucherNodes) {
+            const voucherNumber = voucherNode.getAttribute('VoucherNumber1');
+            if (!voucherNumber) continue;
+
+            const detailNodes = Array.from(voucherNode.getElementsByTagName('Details'));
+            const objectHeads = new Set();
+            const funcHeads = new Set();
+
+            for (const detail of detailNodes) {
+                const objHeadAttr = detail.getAttribute('ObjectHead');
+                if (objHeadAttr) {
+                    const cleanedHead = objHeadAttr.split(' [')[0].trim().toUpperCase();
+                    if (cleanedHead && !genericTerms.test(cleanedHead)) {
+                        objectHeads.add(cleanedHead);
+                    }
+                }
+                const funcHeadAttr = detail.getAttribute('FuncHead');
+                 if (funcHeadAttr) {
+                    const cleanedHead = funcHeadAttr.split(' [')[0].trim().toUpperCase();
+                    if (cleanedHead && !genericTerms.test(cleanedHead)) {
+                        funcHeads.add(cleanedHead);
+                    }
                 }
             }
-
-            const funcHeadAttr = detail.getAttribute('FuncHead2');
-            if (funcHeadAttr) {
-                const cleanedHead = funcHeadAttr.split('-[')[0].trim().toUpperCase();
-                if (cleanedHead && !genericTerms.test(cleanedHead)) {
-                    funcHeads.add(cleanedHead);
-                }
-            }
+            allVouchers.push({
+                voucherNumber,
+                ddoName,
+                objectHeads: Array.from(objectHeads),
+                funcHeads: Array.from(funcHeads)
+            });
         }
-        
-        voucherDetailsMap.set(voucherNumber, { 
-            objectHeads: Array.from(objectHeads), 
-            funcHeads: Array.from(funcHeads) 
-        });
     }
-    return voucherDetailsMap;
+    
+    let reportDate = '';
+    const dateRangeNode = xmlDoc.querySelector('Tablix2');
+    if (dateRangeNode) {
+        const dateRangeAttr = dateRangeNode.getAttribute('Textbox18');
+        if (dateRangeAttr) {
+            reportDate = dateRangeAttr.split('  ')[0].trim().replace(/-/g, '/');
+        }
+    }
+
+    return { vouchers: allVouchers, reportDate };
 }
 
-function getCategory(voucher, sanctionTEData) {
-    const { userNm, ddoInfo, voucherNumber } = voucher;
 
-    if (userNm && userNm.includes('[GEM]')) {
-        const isOuterDDO = /JAMMU|SRINAGAR|CHANDIGARH|DEHRADUN/i.test(ddoInfo);
-        if (isOuterDDO) return 'Gem(Outer)';
-    }
+function getCategory(voucher) {
+    const { userNm, objectHeads, funcHeads } = voucher;
 
     if (userNm) {
         if (userNm.includes('[GPFEIS]')) return 'GPF';
         if (userNm.includes('[EIS]')) return 'Salary(EIS)';
-        if (userNm.includes('[GEM]')) return 'Gem'; 
+        if (userNm.includes('[GEM]')) return 'Gem';
+        if (userNm.includes('[Pension]')) return 'Pension';
     }
 
-    const details = sanctionTEData.get(voucherNumber);
-    if (details) {
-        if (details.objectHeads.length > 0) return details.objectHeads.join(', ');
-        if (details.funcHeads.length > 0) return details.funcHeads.join(', ');
+    if (objectHeads && objectHeads.length > 0) {
+        return objectHeads.join(', ');
+    }
+    if (funcHeads && funcHeads.length > 0) {
+        return funcHeads.join(', ');
     }
 
     return 'Category Not Found';
 }
 
-function reconcileData(paymentAuthData, sanctionTEData) {
-    let vNormalBills = [], vEBills = [], cNormalBills = [], cEBills = [];
+function reconcileData(compilationVouchers, paymentAuthMap, issueDate) {
+    let ncddoNormalBills = [], ncddoEBills = [], cddoNormalBills = [], cddoEBills = [];
 
-    for (const voucher of paymentAuthData.vouchers) {
-        if (voucher.billType === 'Normal') {
-            voucher.category = getCategory(voucher, sanctionTEData);
-        }
+    for (const voucher of compilationVouchers) {
+        const paymentDetails = paymentAuthMap.get(voucher.voucherNumber);
 
-        if (voucher.voucherNumber.startsWith('V')) {
-            if (voucher.billType === 'Normal') vNormalBills.push(voucher);
-            else vEBills.push(voucher);
-        } else if (voucher.voucherNumber.startsWith('C')) {
-            if (voucher.billType === 'Normal') cNormalBills.push(voucher);
-            else cEBills.push(voucher);
+        // Assign details from lookup or set defaults
+        voucher.billType = paymentDetails ? paymentDetails.billType : 'Normal';
+        voucher.userNm = paymentDetails ? paymentDetails.userNm : null;
+        voucher.token = paymentDetails ? paymentDetails.token : null;
+        voucher.category = getCategory(voucher);
+
+        const isNCDDO = voucher.ddoName.toUpperCase().includes('LUCKNOW');
+
+        if (isNCDDO) {
+            if (voucher.billType === 'Normal') ncddoNormalBills.push(voucher);
+            else ncddoEBills.push(voucher);
+        } else {
+            if (voucher.billType === 'Normal') cddoNormalBills.push(voucher);
+            else cddoEBills.push(voucher);
         }
     }
     
     const sortByToken = (a, b) => (a.token || 0) - (b.token || 0);
-    vNormalBills.sort(sortByToken);
-    cNormalBills.sort(sortByToken);
+    ncddoNormalBills.sort(sortByToken);
+    cddoNormalBills.sort(sortByToken);
 
-    return { vNormalBills, vEBills, cNormalBills, cEBills, issueDate: paymentAuthData.issueDate };
+    return { ncddoNormalBills, ncddoEBills, cddoNormalBills, cddoEBills, issueDate };
 }
 
 function displayResults(results) {
-    const { vNormalBills, vEBills, cNormalBills, cEBills } = results;
+    const { ncddoNormalBills, ncddoEBills, cddoNormalBills, cddoEBills } = results;
     
     let resultsHTML = '';
-    const totalVouchers = vNormalBills.length + vEBills.length + cNormalBills.length + cEBills.length;
+    const totalVouchers = ncddoNormalBills.length + ncddoEBills.length + cddoNormalBills.length + cddoEBills.length;
 
     const createResultCard = (title, normalBills, eBillCount) => {
         const totalCount = normalBills.length + eBillCount;
@@ -311,8 +317,8 @@ function displayResults(results) {
             </div>`;
     };
 
-    resultsHTML += createResultCard("NCDDO Analysis (V Vouchers)", vNormalBills, vEBills.length);
-    resultsHTML += createResultCard("CDDO Analysis (C Vouchers)", cNormalBills, cEBills.length);
+    resultsHTML += createResultCard("NCDDO Analysis (Lucknow)", ncddoNormalBills, ncddoEBills.length);
+    resultsHTML += createResultCard("CDDO Analysis (Outer)", cddoNormalBills, cddoEBills.length);
 
     if (totalVouchers === 0) {
         resultsHTML = `<div class="text-center py-10 animate-fade-in">
@@ -333,7 +339,7 @@ function generatePdfReport() {
     }
 
     const doc = new window.jspdf.jsPDF();
-    const { vNormalBills, vEBills, cNormalBills, cEBills, issueDate } = lastAnalysisResults;
+    const { ncddoNormalBills, ncddoEBills, cddoNormalBills, cddoEBills, issueDate } = lastAnalysisResults;
 
     // --- Data Preparation ---
     const reportDate = issueDate || new Date().toLocaleDateString('en-GB');
@@ -343,10 +349,10 @@ function generatePdfReport() {
     };
 
     const data = {
-        eBillsNCDDO: { passed: vEBills.length, returned: getInputValue('returned-ebills-ncddo') },
-        eBillsCDDO: { passed: cEBills.length, returned: getInputValue('returned-ebills-cddo') },
-        normalBillsNCDDO: { passed: vNormalBills.length, returned: getInputValue('returned-normal-ncddo') },
-        normalBillsCDDO: { passed: cNormalBills.length, returned: getInputValue('returned-normal-cddo') },
+        eBillsNCDDO: { passed: ncddoEBills.length, returned: getInputValue('returned-ebills-ncddo') },
+        eBillsCDDO: { passed: cddoEBills.length, returned: getInputValue('returned-ebills-cddo') },
+        normalBillsNCDDO: { passed: ncddoNormalBills.length, returned: getInputValue('returned-normal-ncddo') },
+        normalBillsCDDO: { passed: cddoNormalBills.length, returned: getInputValue('returned-normal-cddo') },
     };
 
     const getRemarks = (bills) => {
@@ -358,8 +364,8 @@ function generatePdfReport() {
         return Object.entries(counts).map(([cat, count]) => `${cat}: ${count}`).join(', ');
     };
 
-    data.normalBillsNCDDO.remarks = getRemarks(vNormalBills);
-    data.normalBillsCDDO.remarks = getRemarks(cNormalBills);
+    data.normalBillsNCDDO.remarks = getRemarks(ncddoNormalBills);
+    data.normalBillsCDDO.remarks = getRemarks(cddoNormalBills);
 
     let percentage = document.getElementById('percentage-override').value.trim();
     if (percentage && !percentage.endsWith('%')) {
