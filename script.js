@@ -334,6 +334,32 @@ function displayResults(results) {
     updateStatus('Analysis complete.', 'success');
 }
 
+function titleCaseCategory(cat) {
+    // Handle special hardcoded cases first to preserve their specific casing
+    if (cat.toLowerCase() === 'gpf') return 'Gpf';
+    if (cat.toLowerCase() === 'gem') return 'Gem';
+    if (cat.toLowerCase() === 'salary(eis)') return 'Salary(eis)';
+
+    let textPart = cat;
+    let codePart = '';
+
+    // Find and separate the code part like [13] or [04]
+    const match = cat.match(/(\[\d+\])$/);
+    if (match) {
+        textPart = cat.substring(0, match.index).trim();
+        codePart = match[0];
+    }
+
+    // Convert the main text part to Title Case
+    const titleCasedText = textPart
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+
+    // Rejoin the text and code parts
+    return `${titleCasedText}${codePart}`;
+}
+
 function generatePdfReport() {
     if (!lastAnalysisResults) {
         alert("Please analyze the reports first before generating a PDF.");
@@ -357,7 +383,7 @@ function generatePdfReport() {
         normalBillsCDDO: { passed: cddoNormalBills.length, returned: getInputValue('returned-normal-cddo') },
     };
 
-    const getRemarks = (bills) => {
+        const getRemarks = (bills) => {
         if (bills.length === 0) return '';
         
         const counts = bills.reduce((acc, bill) => {
@@ -389,7 +415,9 @@ function generatePdfReport() {
         const entries = Object.entries(counts);
         return entries.map(([cat, count]) => {
             const billText = count > 1 ? 'Bills' : 'Bill';
-            return `• ${cat}- ${count} ${billText}`;
+            // Use the new title case function here
+            const formattedCat = titleCaseCategory(cat);
+            return `• ${formattedCat}- ${count} ${billText}`;
         }).join('\n');
     };
 
