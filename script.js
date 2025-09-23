@@ -190,20 +190,20 @@ function parseCompilationSheetXML(xmlDoc) {
             const funcHeads = new Set();
 
             for (const detail of detailNodes) {
-                const objHeadAttr = detail.getAttribute('ObjectHead');
-                if (objHeadAttr) {
-                    const cleanedHead = objHeadAttr.split(' [')[0].trim().toUpperCase();
-                    if (cleanedHead && !genericTerms.test(cleanedHead)) {
-                        objectHeads.add(cleanedHead);
+                const processHead = (headAttr) => {
+                    if (!headAttr) return;
+                    const cleanedHead = headAttr.replace(/\s*\[\s*(\d+)\s*\]/, '[$1]').trim();
+                    if (cleanedHead && !genericTerms.test(cleanedHead.toUpperCase())) {
+                        return cleanedHead;
                     }
-                }
-                const funcHeadAttr = detail.getAttribute('FuncHead');
-                 if (funcHeadAttr) {
-                    const cleanedHead = funcHeadAttr.split(' [')[0].trim().toUpperCase();
-                    if (cleanedHead && !genericTerms.test(cleanedHead)) {
-                        funcHeads.add(cleanedHead);
-                    }
-                }
+                    return null;
+                };
+
+                const objHead = processHead(detail.getAttribute('ObjectHead'));
+                if (objHead) objectHeads.add(objHead);
+
+                const funcHead = processHead(detail.getAttribute('FuncHead'));
+                if (funcHead) funcHeads.add(funcHead);
             }
             allVouchers.push({
                 voucherNumber,
@@ -226,27 +226,6 @@ function parseCompilationSheetXML(xmlDoc) {
     return { vouchers: allVouchers, reportDate };
 }
 
-
-function getCategory(voucher) {
-    const { userNm, objectHeads, funcHeads } = voucher;
-
-    if (userNm) {
-        if (userNm.includes('[GPFEIS]')) return 'GPF';
-        if (userNm.includes('[EIS]')) return 'Salary(EIS)';
-        if (userNm.includes('[GEM]')) return 'Gem';
-        if (userNm.includes('[Pension]')) return 'Pension';
-    }
-
-    if (objectHeads && objectHeads.length > 0) {
-        return objectHeads.join(', ');
-    }
-    if (funcHeads && funcHeads.length > 0) {
-        return funcHeads.join(', ');
-    }
-
-    return 'Category Not Found';
-}
-
 function reconcileData(compilationVouchers, paymentAuthMap, issueDate) {
     let ncddoNormalBills = [], ncddoEBills = [], cddoNormalBills = [], cddoEBills = [];
 
@@ -257,7 +236,6 @@ function reconcileData(compilationVouchers, paymentAuthMap, issueDate) {
         voucher.billType = paymentDetails ? paymentDetails.billType : 'Normal';
         voucher.userNm = paymentDetails ? paymentDetails.userNm : null;
         voucher.token = paymentDetails ? paymentDetails.token : null;
-        voucher.category = getCategory(voucher);
 
         const isNCDDO = voucher.ddoName.toUpperCase().includes('LUCKNOW');
 
@@ -275,6 +253,30 @@ function reconcileData(compilationVouchers, paymentAuthMap, issueDate) {
     cddoNormalBills.sort(sortByToken);
 
     return { ncddoNormalBills, ncddoEBills, cddoNormalBills, cddoEBills, issueDate };
+}
+
+function getDisplayCategory(bill) {
+    // Helper function to get a simple category string for the UI display.
+    let categories = [];
+    let hasUserNmCategory = false;
+
+    if (bill.userNm) {
+        if (bill.userNm.includes('[GPFEIS]')) { categories.push('Gpf'); hasUserNmCategory = true; }
+        if (bill.userNm.includes('[EIS]')) { categories.push('Salary(eis)'); hasUserNmCategory = true; }
+        if (bill.userNm.includes('[GEM]')) { categories.push('Gem'); hasUserNmCategory = true; }
+        if (bill.userNm.includes('[Pension]')) { categories.push('Pension'); hasUserNmCategory = true; }
+    }
+
+    if (!hasUserNmCategory) {
+        if (bill.objectHeads && bill.objectHeads.length > 0) {
+            categories.push(...bill.objectHeads);
+        } else if (bill.funcHeads && bill.funcHeads.length > 0) {
+            categories.push(...bill.funcHeads);
+        }
+    }
+    
+    if (categories.length === 0) return 'Uncategorized';
+    return categories.join(', ');
 }
 
 function displayResults(results) {
@@ -296,7 +298,7 @@ function displayResults(results) {
                     <div class="flex items-start gap-3 p-2 bg-white rounded-md border border-slate-200">
                         <span class="bg-blue-100 text-blue-800 text-xs font-mono font-medium px-2.5 py-1 rounded-full mt-0.5">${bill.token || 'N/A'}</span>
                         <div class="flex-1 text-sm">
-                            <span class="font-medium text-slate-800">${bill.category}</span>
+                            <span class="font-medium text-slate-800">${getDisplayCategory(bill)}</span>
                             <span class="text-slate-500 text-xs block">(${bill.voucherNumber})</span>
                         </div>
                     </div>
@@ -357,11 +359,38 @@ function generatePdfReport() {
 
     const getRemarks = (bills) => {
         if (bills.length === 0) return '';
+        
         const counts = bills.reduce((acc, bill) => {
-            acc[bill.category] = (acc[bill.category] || 0) + 1;
+            let categories = [];
+            let hasUserNmCategory = false;
+
+            if (bill.userNm) {
+                if (bill.userNm.includes('[GPFEIS]')) { categories.push('Gpf'); hasUserNmCategory = true; }
+                if (bill.userNm.includes('[EIS]')) { categories.push('Salary(eis)'); hasUserNmCategory = true; }
+                if (bill.userNm.includes('[GEM]')) { categories.push('Gem'); hasUserNmCategory = true; }
+                if (bill.userNm.includes('[Pension]')) { categories.push('Pension'); hasUserNmCategory = true; }
+            }
+
+            if (!hasUserNmCategory) {
+                if (bill.objectHeads && bill.objectHeads.length > 0) {
+                    categories.push(...bill.objectHeads);
+                } else if (bill.funcHeads && bill.funcHeads.length > 0) {
+                    categories.push(...bill.funcHeads);
+                }
+            }
+
+            for (const category of categories) {
+                acc[category] = (acc[category] || 0) + 1;
+            }
+
             return acc;
         }, {});
-        return Object.entries(counts).map(([cat, count]) => `${cat}: ${count}`).join(', ');
+        
+        const entries = Object.entries(counts);
+        return entries.map(([cat, count]) => {
+            const billText = count > 1 ? 'Bills' : 'Bill';
+            return `• ${cat}- ${count} ${billText}`;
+        }).join('\n');
     };
 
     data.normalBillsNCDDO.remarks = getRemarks(ncddoNormalBills);
@@ -386,8 +415,8 @@ function generatePdfReport() {
     const colWidths = [60, 25, 25, 25, 35];
     const headers = ["Type of Bills", "Passed", "Returned", "Total", "Remarks"];
     const headerHeight = 10;
-    const verticalPadding = 5;
-    const lineHeight = 5; // Approximate height for a line of text
+    const verticalPadding = 2; // Further reduced for compactness
+    const lineHeight = 5;
 
     doc.setFont("helvetica", "bold");
     headers.forEach((header, i) => {
@@ -409,26 +438,33 @@ function generatePdfReport() {
     let currentY = headerY + headerHeight;
 
     rows.forEach((row) => {
-        // Calculate dynamic row height based on remarks column
         const remarksText = String(row[4]);
         const textLines = doc.splitTextToSize(remarksText, colWidths[4] - 4);
         const calculatedHeight = (textLines.length * lineHeight) + (verticalPadding * 2);
-        const rowHeight = Math.max(15, calculatedHeight); // Set a minimum row height
+        
+        // Use a smaller, fixed height for rows that have no remarks to reduce empty space
+        const rowHeight = remarksText ? Math.max(10, calculatedHeight) : 10;
 
         row.forEach((cell, colIndex) => {
             const xPos = tableX + colWidths.slice(0, colIndex).reduce((a, b) => a + b, 0);
             doc.rect(xPos, currentY, colWidths[colIndex], rowHeight);
             
-            if (colIndex === 4) { // Remarks column with wrapping
-                 doc.text(textLines, xPos + 2, currentY + verticalPadding);
-            } else { // Other columns, vertically centered
-                 doc.text(String(cell), xPos + colWidths[colIndex] / 2, currentY + rowHeight / 2 + 2, { align: "center" });
+            // Calculate the absolute vertical center of the current cell
+            const middleY = currentY + rowHeight / 2;
+
+            if (colIndex === 4 && remarksText) { // Remarks column (multi-line)
+                // For a block of text, we calculate an offset to center the entire block
+                const textBlockHeight = (textLines.length - 1) * lineHeight;
+                const startY = middleY - (textBlockHeight / 2);
+                doc.text(textLines, xPos + 2, startY, { baseline: 'middle' });
+            } else { // All other columns (single-line)
+                 // Using baseline 'middle' vertically centers the text at the middleY coordinate
+                 doc.text(String(cell), xPos + colWidths[colIndex] / 2, middleY, { align: "center", baseline: 'middle' });
             }
         });
         currentY += rowHeight;
     });
 
-    // Footer position is now dynamic
     const footerY = currentY + 10;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
