@@ -81,7 +81,7 @@
                                 <button id="analyzeButton" class="w-full sm:w-auto bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none" disabled>Analyze Reports</button>
                                 <div id="status" class="text-sm text-slate-600 font-medium bg-slate-200 px-3 py-1 rounded-full whitespace-nowrap">Waiting for files...</div>
                             </div>
-                            <button id="generatePdfButton" class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none" disabled>Generate PDF Report</button>
+                            <button id="previewReportButton" class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none" disabled>Generate PDF Report</button>
                         </div>
                     </div>
                     <!-- Right Column: Results -->
@@ -150,7 +150,7 @@
                                 <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-passed-normal-ncddo" class="w-full text-center outline-none manual-input" data-row="normal-ncddo" data-col="passed"></div>
                                 <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-returned-normal-ncddo" class="w-full text-center outline-none manual-input" data-row="normal-ncddo" data-col="returned"></div>
                                 <div class="p-2 border-r border-black font-bold flex items-center justify-center" id="manual-total-normal-ncddo">0</div>
-                                <div class="p-1 remarks-cell cursor-text"><textarea id="manual-remarks-ncddo" class="w-full h-full outline-none text-xs remarks-textarea" placeholder=""></textarea></div>
+                                <div class="p-1 remarks-cell cursor-text"><textarea id="manual-remarks-ncddo" class="w-full h-full outline-none text-xs remarks-textarea"></textarea></div>
                             </div>
                             <!-- Normal Bills CDDO -->
                             <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center text-sm border-b border-black items-stretch">
@@ -158,7 +158,7 @@
                                 <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-passed-normal-cddo" class="w-full text-center outline-none manual-input" data-row="normal-cddo" data-col="passed"></div>
                                 <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-returned-normal-cddo" class="w-full text-center outline-none manual-input" data-row="normal-cddo" data-col="returned"></div>
                                 <div class="p-2 border-r border-black font-bold flex items-center justify-center" id="manual-total-normal-cddo">0</div>
-                                <div class="p-1 remarks-cell cursor-text"><textarea id="manual-remarks-cddo" class="w-full h-full outline-none text-xs remarks-textarea" placeholder=""></textarea></div>
+                                <div class="p-1 remarks-cell cursor-text"><textarea id="manual-remarks-cddo" class="w-full h-full outline-none text-xs remarks-textarea"></textarea></div>
                             </div>
                         </div>
 

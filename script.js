@@ -19,14 +19,14 @@ const dropZone2 = document.getElementById('dropZone2');
 const fileInput2 = document.getElementById('fileInput2');
 const filePath2 = document.getElementById('filePath2');
 const analyzeButton = document.getElementById('analyzeButton');
-const generatePdfButton = document.getElementById('generatePdfButton');
+const previewReportButton = document.getElementById('previewReportButton');
 const statusLabel = document.getElementById('status');
 const resultsArea = document.getElementById('resultsArea');
 
 // --- Global State ---
 let selectedFile1 = null;
 let selectedFile2 = null;
-let lastAnalysisResults = null; // Store the results for PDF generation
+let lastAnalysisResults = null;
 
 // --- Initial Setup ---
 document.addEventListener('DOMContentLoaded', initialize);
@@ -41,7 +41,7 @@ function initialize() {
     setupEventListeners(dropZone1, fileInput1, (file) => handleFile(file, 1));
     setupEventListeners(dropZone2, fileInput2, (file) => handleFile(file, 2));
     analyzeButton.addEventListener('click', analyzeFiles);
-    generatePdfButton.addEventListener('click', generateReadymadePdfReport);
+    previewReportButton.addEventListener('click', populateAndShowManualForm);
 
     // Manual Workflow Listeners
     manualSection.addEventListener('input', handleManualFormInput);
@@ -53,19 +53,17 @@ function initialize() {
 
 // --- UI Management ---
 function showScreen(screenName) {
-    // Hide all sections first
     selectionScreen.classList.add('hidden');
     readymadeSection.classList.add('hidden');
     manualSection.classList.add('hidden');
 
-    // Show the selected section
     if (screenName === 'readymade') {
         readymadeSection.classList.remove('hidden');
         headerSubtitle.textContent = 'Upload both XML reports to begin analysis.';
     } else if (screenName === 'manual') {
         manualSection.classList.remove('hidden');
         headerSubtitle.textContent = 'Fill in the details below to create your report.';
-    } else { // 'selection'
+    } else {
         selectionScreen.classList.remove('hidden');
         headerSubtitle.textContent = 'Choose a report generation method.';
     }
@@ -104,7 +102,8 @@ function handleFile(file, fileNumber) {
     }
     
     lastAnalysisResults = null;
-    generatePdfButton.disabled = true;
+    previewReportButton.disabled = true;
+    previewReportButton.textContent = 'Generate PDF Report';
     checkFilesReady();
 }
 
@@ -120,7 +119,7 @@ function checkFilesReady() {
 
 function updateStatus(message, type = 'info') {
     statusLabel.textContent = message;
-    statusLabel.className = 'text-sm font-medium px-3 py-1 rounded-full whitespace-nowrap'; // Reset classes
+    statusLabel.className = 'text-sm font-medium px-3 py-1 rounded-full whitespace-nowrap';
     const typeClasses = {
         success: 'bg-green-100 text-green-800',
         error: 'bg-red-100 text-red-800',
@@ -137,7 +136,7 @@ async function analyzeFiles() {
     }
     updateStatus('Processing files...', 'processing');
     analyzeButton.disabled = true;
-    generatePdfButton.disabled = true;
+    previewReportButton.disabled = true;
     resultsArea.innerHTML = '<p class="text-center text-slate-500">Analyzing... please wait.</p>';
 
     try {
@@ -166,9 +165,11 @@ async function analyzeFiles() {
         const reportDate = compilationData.reportDate || paymentAuthData.issueDate;
 
         lastAnalysisResults = reconcileData(compilationData.vouchers, paymentAuthData.voucherDetailsMap, reportDate);
+        
         displayResults(lastAnalysisResults);
         
-        generatePdfButton.disabled = false;
+        previewReportButton.disabled = false;
+        previewReportButton.textContent = 'Preview Report';
 
     } catch (error) {
         console.error('Analysis Error:', error);
@@ -180,12 +181,9 @@ async function analyzeFiles() {
 }
 
 function parsePaymentAuthXML(xmlDoc) {
-    if (xmlDoc.getElementsByTagName("parsererror").length) {
-        throw new Error("Failed to parse E-Payment Authorization Register.");
-    }
+    if (xmlDoc.getElementsByTagName("parsererror").length) throw new Error("Failed to parse E-Payment Authorization Register.");
     const voucherDetailsMap = new Map();
     const voucherNodes = Array.from(xmlDoc.getElementsByTagName('VoucherNumber'));
-
     for (const voucher of voucherNodes) {
         const voucherNumberStr = String(voucher.getAttribute('VoucherNumber')).trim().split(/[\s\r\n]+/)[0];
         const detailsList = voucher.getElementsByTagName('Details');
@@ -196,51 +194,38 @@ function parsePaymentAuthXML(xmlDoc) {
             const tokenEl = voucher.getElementsByTagName('TokenNumber')[0];
             const tokenStr = tokenEl ? tokenEl.getAttribute('TokenNumber') : '';
             const token = tokenStr ? String(tokenStr).trim().split(/[\s\r\n]+/)[0] : null;
-            if (voucherNumberStr) {
-                voucherDetailsMap.set(voucherNumberStr, { billType, userNm, token });
-            }
+            if (voucherNumberStr) voucherDetailsMap.set(voucherNumberStr, { billType, userNm, token });
         }
     }
-    
     let reportDate = '';
     const dateRangeNode = xmlDoc.querySelector('Tablix2');
     if (dateRangeNode) {
         const dateRangeAttr = dateRangeNode.getAttribute('Textbox21');
-        if (dateRangeAttr) {
-            reportDate = dateRangeAttr.split(' till ')[0].trim().replace(/-/g, '/');
-        }
+        if (dateRangeAttr) reportDate = dateRangeAttr.split(' till ')[0].trim().replace(/-/g, '/');
     }
     return { voucherDetailsMap, issueDate: reportDate };
 }
 
 function parseCompilationSheetXML(xmlDoc) {
-    if (xmlDoc.getElementsByTagName("parsererror").length) {
-        throw new Error("Failed to parse Voucher Compilation Sheet.");
-    }
+    if (xmlDoc.getElementsByTagName("parsererror").length) throw new Error("Failed to parse Voucher Compilation Sheet.");
     const allVouchers = [];
     const ddoNodes = Array.from(xmlDoc.getElementsByTagName('DDOName'));
     const genericTerms = /ELECTRONIC ADVICES|SUSPENSE|CHEQUES|DEFAULT|DEDUCTIONS|CONTRIBUTIONS|GST|PUBLIC ACCOUNT|OTHERS/i;
-
     for (const ddoNode of ddoNodes) {
         const ddoNameEl = ddoNode.querySelector('Textbox11');
         const ddoName = ddoNameEl ? ddoNameEl.getAttribute('DDOName') : '';
         const voucherNodes = Array.from(ddoNode.getElementsByTagName('VoucherNumber'));
-
         for (const voucherNode of voucherNodes) {
             const voucherNumber = voucherNode.getAttribute('VoucherNumber1');
             if (!voucherNumber) continue;
-
             const detailNodes = Array.from(voucherNode.getElementsByTagName('Details'));
             const objectHeads = new Set();
             const funcHeads = new Set();
-
             for (const detail of detailNodes) {
                 const processHead = (headAttr) => {
                     if (!headAttr) return;
                     const cleanedHead = headAttr.replace(/\s*\[\s*(\d+)\s*\]/, '[$1]').trim();
-                    if (cleanedHead && !genericTerms.test(cleanedHead.toUpperCase())) {
-                        return cleanedHead;
-                    }
+                    if (cleanedHead && !genericTerms.test(cleanedHead.toUpperCase())) return cleanedHead;
                     return null;
                 };
                 const objHead = processHead(detail.getAttribute('ObjectHead'));
@@ -251,23 +236,19 @@ function parseCompilationSheetXML(xmlDoc) {
             allVouchers.push({ voucherNumber, ddoName, objectHeads: Array.from(objectHeads), funcHeads: Array.from(funcHeads) });
         }
     }
-    
     let reportDate = '';
     const dateRangeNode = xmlDoc.querySelector('Tablix2');
     if (dateRangeNode) {
         const dateRangeAttr = dateRangeNode.getAttribute('Textbox18');
-        if (dateRangeAttr) {
-            reportDate = dateRangeAttr.split('  ')[0].trim().replace(/-/g, '/');
-        }
+        if (dateRangeAttr) reportDate = dateRangeAttr.split('  ')[0].trim().replace(/-/g, '/');
     }
     return { vouchers: allVouchers, reportDate };
 }
 
-function reconcileData(compilationVouchers, paymentAuthMap, issueDate) {
+function reconcileData(compilationVouchers, paymentDetailsMap, issueDate) {
     let ncddoNormalBills = [], ncddoEBills = [], cddoNormalBills = [], cddoEBills = [];
-
     for (const voucher of compilationVouchers) {
-        const paymentDetails = paymentAuthMap.get(voucher.voucherNumber);
+        const paymentDetails = paymentDetailsMap.get(voucher.voucherNumber);
         voucher.billType = paymentDetails ? paymentDetails.billType : 'Normal';
         voucher.userNm = paymentDetails ? paymentDetails.userNm : null;
         voucher.token = paymentDetails ? paymentDetails.token : null;
@@ -280,11 +261,9 @@ function reconcileData(compilationVouchers, paymentAuthMap, issueDate) {
             else cddoEBills.push(voucher);
         }
     }
-    
     const sortByToken = (a, b) => (a.token || 0) - (b.token || 0);
     ncddoNormalBills.sort(sortByToken);
     cddoNormalBills.sort(sortByToken);
-
     return { ncddoNormalBills, ncddoEBills, cddoNormalBills, cddoEBills, issueDate };
 }
 
@@ -309,7 +288,6 @@ function displayResults(results) {
     const { ncddoNormalBills, ncddoEBills, cddoNormalBills, cddoEBills } = results;
     let resultsHTML = '';
     const totalVouchers = ncddoNormalBills.length + ncddoEBills.length + cddoNormalBills.length + cddoEBills.length;
-
     const createResultCard = (title, normalBills, eBillCount) => {
         const totalCount = normalBills.length + eBillCount;
         if (totalCount === 0) return '';
@@ -340,10 +318,8 @@ function displayResults(results) {
             ${tokenHTML}
         </div>`;
     };
-
     resultsHTML += createResultCard("NCDDO Analysis (Lucknow)", ncddoNormalBills, ncddoEBills.length);
     resultsHTML += createResultCard("CDDO Analysis (Outer)", cddoNormalBills, cddoEBills.length);
-
     if (totalVouchers === 0) {
         resultsHTML = `<div class="text-center py-10 animate-fade-in">
             <h3 class="mt-2 text-lg font-medium text-slate-800">No Vouchers Found</h3>
@@ -354,74 +330,84 @@ function displayResults(results) {
     updateStatus('Analysis complete.', 'success');
 }
 
-function generateReadymadePdfReport() {
+// ===================================================================================
+// === MANUAL REPORT WORKFLOW & PREVIEW ==============================================
+// ===================================================================================
+
+function getRemarksFromBills(bills) {
+    if (!bills || bills.length === 0) return '';
+    const counts = bills.reduce((acc, bill) => {
+        const category = getDisplayCategory(bill);
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+    }, {});
+    return Object.entries(counts).map(([cat, count]) => `• ${cat}- ${count} ${count > 1 ? 'Bills' : 'Bill'}`).join('\n');
+}
+
+function populateAndShowManualForm() {
     if (!lastAnalysisResults) {
         alert("Please analyze the reports first.");
         return;
     }
+
     const { ncddoNormalBills, ncddoEBills, cddoNormalBills, cddoEBills, issueDate } = lastAnalysisResults;
-    const reportDate = issueDate || new Date().toLocaleDateString('en-GB');
 
-    const data = {
-        eBillsNCDDO: { passed: ncddoEBills.length, returned: 0 },
-        eBillsCDDO: { passed: cddoEBills.length, returned: 0 },
-        normalBillsNCDDO: { passed: ncddoNormalBills.length, returned: 0 },
-        normalBillsCDDO: { passed: cddoNormalBills.length, returned: 0 },
+    const setInputValue = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value;
     };
 
-    const getRemarks = (bills) => {
-        if (bills.length === 0) return '';
-        const counts = bills.reduce((acc, bill) => {
-            const category = getDisplayCategory(bill);
-            acc[category] = (acc[category] || 0) + 1;
-            return acc;
-        }, {});
-        return Object.entries(counts).map(([cat, count]) => `• ${cat}- ${count} ${count > 1 ? 'Bills' : 'Bill'}`).join('\n');
-    };
+    setInputValue('manual-passed-ebills-ncddo', ncddoEBills.length);
+    setInputValue('manual-passed-ebills-cddo', cddoEBills.length);
+    setInputValue('manual-passed-normal-ncddo', ncddoNormalBills.length);
+    setInputValue('manual-passed-normal-cddo', cddoNormalBills.length);
 
-    data.normalBillsNCDDO.remarks = getRemarks(ncddoNormalBills);
-    data.normalBillsCDDO.remarks = getRemarks(cddoNormalBills);
+    setInputValue('manual-returned-ebills-ncddo', 0);
+    setInputValue('manual-returned-ebills-cddo', 0);
+    setInputValue('manual-returned-normal-ncddo', 0);
+    setInputValue('manual-returned-normal-cddo', 0);
 
-    const totalPassedEBills = data.eBillsNCDDO.passed + data.eBillsCDDO.passed;
-    const totalPassedBills = totalPassedEBills + data.normalBillsNCDDO.passed + data.normalBillsCDDO.passed;
+    const remarksNCDDO = getRemarksFromBills(ncddoNormalBills);
+    const remarksCDDO = getRemarksFromBills(cddoNormalBills);
+    setInputValue('manual-remarks-ncddo', remarksNCDDO);
+    setInputValue('manual-remarks-cddo', remarksCDDO);
+    
+    setInputValue('manual-report-date', issueDate || new Date().toLocaleDateString('en-GB'));
+    
+    const totalPassedEBills = ncddoEBills.length + cddoEBills.length;
+    const totalPassedBills = totalPassedEBills + ncddoNormalBills.length + cddoNormalBills.length;
     const percentage = totalPassedBills > 0 ? `${((totalPassedEBills / totalPassedBills) * 100).toFixed(2)}%` : "0.00%";
+    setInputValue('manual-percentage', percentage);
 
-    generatePdf(reportDate, data, percentage);
+    document.querySelectorAll('.manual-input').forEach(el => updateManualTotal(el));
+    document.querySelectorAll('.remarks-textarea').forEach(textarea => {
+        if (textarea.value.trim() !== '') {
+            autoexpandTextarea(textarea);
+        } else {
+            textarea.value = '';
+        }
+    });
+
+    showScreen('manual');
 }
-
-
-// ===================================================================================
-// === MANUAL REPORT WORKFLOW ========================================================
-// ===================================================================================
 
 function handleManualFormInput(event) {
     const target = event.target;
-    
-    if (target.classList.contains('remarks-textarea')) {
-        autoexpandTextarea(target);
-    }
-
-    if (target.classList.contains('manual-input')) {
-        updateManualTotal(target);
-    }
+    if (target.classList.contains('remarks-textarea')) autoexpandTextarea(target);
+    if (target.classList.contains('manual-input')) updateManualTotal(target);
 }
 
 function handleRemarksCellClick(event) {
-    const target = event.target;
-    if (target.classList.contains('remarks-cell')) {
-        const textarea = target.querySelector('.remarks-textarea');
-        if (textarea) {
-            textarea.focus();
-        }
+    if (event.target.classList.contains('remarks-cell')) {
+        const textarea = event.target.querySelector('.remarks-textarea');
+        if (textarea) textarea.focus();
     }
 }
 
 function handleRemarksFocus(event) {
     const textarea = event.target;
     if (textarea.classList.contains('remarks-textarea')) {
-        if (textarea.value.trim() === '') {
-            textarea.value = '• ';
-        }
+        if (textarea.value.trim() === '') textarea.value = '• ';
         autoexpandTextarea(textarea);
     }
 }
@@ -436,49 +422,35 @@ function handleRemarksKeydown(event) {
     if (!textarea.classList.contains('remarks-textarea')) return;
 
     const bullet = '• ';
-    const indent = '  '; // Two spaces, same length as the bullet string
+    const indent = '  ';
 
     if (event.key === 'Enter') {
         event.preventDefault();
-        
         let insertion = '\n';
         if (event.ctrlKey && !event.shiftKey) {
-            // Ctrl+Enter: New bullet point
             insertion += bullet;
         } else {
-            // Enter or Ctrl+Shift+Enter: New line with indentation
-            // Find the start of the current line to check if it's a bulleted line
             const cursorPosition = textarea.selectionStart;
             const textBeforeCursor = textarea.value.substring(0, cursorPosition);
             const lineStart = textBeforeCursor.lastIndexOf('\n') + 1;
             const currentLine = textarea.value.substring(lineStart, cursorPosition);
-
-            if (currentLine.trim().startsWith('•')) {
-                insertion += indent;
-            }
+            if (currentLine.trim().startsWith('•')) insertion += indent;
         }
-        
-        // Insert the text and update cursor position
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
         textarea.value = textarea.value.substring(0, start) + insertion + textarea.value.substring(end);
         textarea.selectionStart = textarea.selectionEnd = start + insertion.length;
-        
         autoexpandTextarea(textarea);
     }
 
     if (event.key === 'Backspace') {
         const value = textarea.value;
         const start = textarea.selectionStart;
-
-        // If backspacing at the start of an indented line, remove the indent
         if (value.substring(start - indent.length, start) === indent) {
             event.preventDefault();
             textarea.value = value.substring(0, start - indent.length) + value.substring(start);
             textarea.selectionStart = textarea.selectionEnd = start - indent.length;
-        }
-        // If backspacing at the start of a bulleted line, remove the bullet
-        else if (value.substring(start - bullet.length, start) === bullet) {
+        } else if (value.substring(start - bullet.length, start) === bullet) {
             event.preventDefault();
             textarea.value = value.substring(0, start - bullet.length) + value.substring(start);
             textarea.selectionStart = textarea.selectionEnd = start - bullet.length;
@@ -486,31 +458,25 @@ function handleRemarksKeydown(event) {
     }
 }
 
-
 function updateManualTotal(inputElement) {
     const row = inputElement.dataset.row;
     if (!row) return;
-
     const passedValue = parseInt(document.getElementById(`manual-passed-${row}`).value, 10) || 0;
     const returnedValue = parseInt(document.getElementById(`manual-returned-${row}`).value, 10) || 0;
-    
     const totalElement = document.getElementById(`manual-total-${row}`);
     totalElement.textContent = passedValue + returnedValue;
 }
 
 function generateManualPdfReport() {
     const getVal = (id) => parseInt(document.getElementById(id).value, 10) || 0;
-
     const data = {
         eBillsNCDDO: { passed: getVal('manual-passed-ebills-ncddo'), returned: getVal('manual-returned-ebills-ncddo') },
         eBillsCDDO: { passed: getVal('manual-passed-ebills-cddo'), returned: getVal('manual-returned-ebills-cddo') },
         normalBillsNCDDO: { passed: getVal('manual-passed-normal-ncddo'), returned: getVal('manual-returned-normal-ncddo'), remarks: document.getElementById('manual-remarks-ncddo').value },
         normalBillsCDDO: { passed: getVal('manual-passed-normal-cddo'), returned: getVal('manual-returned-normal-cddo'), remarks: document.getElementById('manual-remarks-cddo').value },
     };
-
     const reportDate = document.getElementById('manual-report-date').value.trim() || new Date().toLocaleDateString('en-GB');
     const percentage = document.getElementById('manual-percentage').value.trim() || 'Not provided';
-
     generatePdf(reportDate, data, percentage);
 }
 
@@ -521,7 +487,6 @@ function generateManualPdfReport() {
 
 function generatePdf(reportDate, data, percentage) {
     const doc = new window.jspdf.jsPDF();
-
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.text("PAO, GSI(NR),Lucknow", 105, 20, { align: "center" });
@@ -529,39 +494,32 @@ function generatePdf(reportDate, data, percentage) {
     doc.setFont("helvetica", "normal");
     doc.text("Daily Status Report of E. Bills", 105, 27, { align: "center" });
     doc.text(`Date: ${reportDate}`, 20, 40);
-
     const tableX = 20;
     const headerY = 50;
     const colWidths = [60, 25, 25, 25, 35];
     const headers = ["Type of Bills", "Passed", "Returned", "Total", "Remarks"];
     const headerHeight = 10;
     const lineHeight = 5;
-
     doc.setFont("helvetica", "bold");
     headers.forEach((header, i) => {
         const xPos = tableX + colWidths.slice(0, i).reduce((a, b) => a + b, 0);
         doc.rect(xPos, headerY, colWidths[i], headerHeight);
         doc.text(header, xPos + colWidths[i] / 2, headerY + headerHeight / 2 + 2, { align: "center" });
     });
-
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    
     const rows = [
         ["E. Bills- NCDDO", data.eBillsNCDDO.passed, data.eBillsNCDDO.returned, data.eBillsNCDDO.passed + data.eBillsNCDDO.returned, ""],
         ["E. Bills- CDDO", data.eBillsCDDO.passed, data.eBillsCDDO.returned, data.eBillsCDDO.passed + data.eBillsCDDO.returned, ""],
         ["Normal Bills- NCDDO", data.normalBillsNCDDO.passed, data.normalBillsNCDDO.returned, data.normalBillsNCDDO.passed + data.normalBillsNCDDO.returned, data.normalBillsNCDDO.remarks || ""],
         ["Normal Bills- CDDO", data.normalBillsCDDO.passed, data.normalBillsCDDO.returned, data.normalBillsCDDO.passed + data.normalBillsCDDO.returned, data.normalBillsCDDO.remarks || ""],
     ];
-
     let currentY = headerY + headerHeight;
-
     rows.forEach((row) => {
         const remarksText = String(row[4]);
         const textLines = doc.splitTextToSize(remarksText, colWidths[4] - 4);
         const calculatedHeight = (textLines.length * lineHeight) + 4;
         const rowHeight = remarksText ? Math.max(10, calculatedHeight) : 10;
-
         row.forEach((cell, colIndex) => {
             const xPos = tableX + colWidths.slice(0, colIndex).reduce((a, b) => a + b, 0);
             doc.rect(xPos, currentY, colWidths[colIndex], rowHeight);
@@ -576,16 +534,13 @@ function generatePdf(reportDate, data, percentage) {
         });
         currentY += rowHeight;
     });
-
     const footerY = currentY + 10;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.text(`Percentage of E. Bills being passed: ${percentage}`, 20, footerY);
-    
     doc.setFont("helvetica", "normal");
     doc.text("Assistant Accounts Officer", 190, footerY + 20, { align: "right" });
     doc.text("Pre-Check Section", 190, footerY + 25, { align: "right" });
     doc.text("PAO, GSI(NR), Lucknow", 190, footerY + 30, { align: "right" });
-
     doc.save(`Daily_Status_Report_${reportDate.replace(/\//g, '-')}.pdf`);
 }
