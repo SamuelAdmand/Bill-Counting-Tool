@@ -334,6 +334,24 @@ function displayResults(results) {
 // === MANUAL REPORT WORKFLOW & PREVIEW ==============================================
 // ===================================================================================
 
+function titleCaseCategory(cat) {
+    // Handle special hardcoded cases first
+    if (cat.toLowerCase() === 'gpf') return 'Gpf';
+    if (cat.toLowerCase() === 'gem') return 'Gem';
+    if (cat.toLowerCase() === 'salary(eis)') return 'Salary(eis)';
+    if (cat.toLowerCase() === 'nps') return 'NPS';
+
+    let textPart = cat;
+    let codePart = '';
+    const match = cat.match(/(\[\d+\])$/);
+    if (match) {
+        textPart = cat.substring(0, match.index).trim();
+        codePart = match[0];
+    }
+    const titleCasedText = textPart.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+    return `${titleCasedText}${codePart}`;
+}
+
 function getRemarksFromBills(bills) {
     if (!bills || bills.length === 0) return '';
     const counts = bills.reduce((acc, bill) => {
@@ -341,7 +359,10 @@ function getRemarksFromBills(bills) {
         acc[category] = (acc[category] || 0) + 1;
         return acc;
     }, {});
-    return Object.entries(counts).map(([cat, count]) => `• ${cat}- ${count} ${count > 1 ? 'Bills' : 'Bill'}`).join('\n');
+    return Object.entries(counts).map(([cat, count]) => {
+        const formattedCat = titleCaseCategory(cat); // Apply title case here
+        return `• ${formattedCat}- ${count} ${count > 1 ? 'Bills' : 'Bill'}`;
+    }).join('\n');
 }
 
 function populateAndShowManualForm() {
@@ -357,6 +378,10 @@ function populateAndShowManualForm() {
         if (el) el.value = value;
     };
 
+    // First, switch to the manual screen to ensure elements are visible
+    showScreen('manual');
+
+    // Now, populate the values
     setInputValue('manual-passed-ebills-ncddo', ncddoEBills.length);
     setInputValue('manual-passed-ebills-cddo', cddoEBills.length);
     setInputValue('manual-passed-normal-ncddo', ncddoNormalBills.length);
@@ -379,6 +404,7 @@ function populateAndShowManualForm() {
     const percentage = totalPassedBills > 0 ? `${((totalPassedEBills / totalPassedBills) * 100).toFixed(2)}%` : "0.00%";
     setInputValue('manual-percentage', percentage);
 
+    // Finally, update totals and resize textareas now that they are visible
     document.querySelectorAll('.manual-input').forEach(el => updateManualTotal(el));
     document.querySelectorAll('.remarks-textarea').forEach(textarea => {
         if (textarea.value.trim() !== '') {
@@ -387,8 +413,6 @@ function populateAndShowManualForm() {
             textarea.value = '';
         }
     });
-
-    showScreen('manual');
 }
 
 function handleManualFormInput(event) {
