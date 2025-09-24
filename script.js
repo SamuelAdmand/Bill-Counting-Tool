@@ -1,23 +1,77 @@
 // --- DOM Element References ---
+// Screens and Containers
+const selectionScreen = document.getElementById('selectionScreen');
+const readymadeSection = document.getElementById('readymadeSection');
+const manualSection = document.getElementById('manualSection');
+const headerSubtitle = document.getElementById('header-subtitle');
+
+// Buttons
+const showReadymadeBtn = document.getElementById('showReadymadeBtn');
+const showManualBtn = document.getElementById('showManualBtn');
+const backBtns = document.querySelectorAll('.back-btn');
+const generateManualPdfButton = document.getElementById('generateManualPdfButton');
+
+// --- Readymade Section Elements ---
 const dropZone1 = document.getElementById('dropZone1');
 const fileInput1 = document.getElementById('fileInput1');
 const filePath1 = document.getElementById('filePath1');
-
 const dropZone2 = document.getElementById('dropZone2');
 const fileInput2 = document.getElementById('fileInput2');
 const filePath2 = document.getElementById('filePath2');
-
 const analyzeButton = document.getElementById('analyzeButton');
 const generatePdfButton = document.getElementById('generatePdfButton');
 const statusLabel = document.getElementById('status');
 const resultsArea = document.getElementById('resultsArea');
-const manualInputSection = document.getElementById('manualInputSection');
 
+// --- Global State ---
 let selectedFile1 = null;
 let selectedFile2 = null;
 let lastAnalysisResults = null; // Store the results for PDF generation
 
-// --- Event Listeners ---
+// --- Initial Setup ---
+document.addEventListener('DOMContentLoaded', initialize);
+
+function initialize() {
+    // UI Switching Listeners
+    showReadymadeBtn.addEventListener('click', () => showScreen('readymade'));
+    showManualBtn.addEventListener('click', () => showScreen('manual'));
+    backBtns.forEach(btn => btn.addEventListener('click', () => showScreen('selection')));
+
+    // Readymade Workflow Listeners
+    setupEventListeners(dropZone1, fileInput1, (file) => handleFile(file, 1));
+    setupEventListeners(dropZone2, fileInput2, (file) => handleFile(file, 2));
+    analyzeButton.addEventListener('click', analyzeFiles);
+    generatePdfButton.addEventListener('click', generateReadymadePdfReport);
+
+    // Manual Workflow Listener
+    generateManualPdfButton.addEventListener('click', generateManualPdfReport);
+}
+
+// --- UI Management ---
+function showScreen(screenName) {
+    // Hide all sections first
+    selectionScreen.classList.add('hidden');
+    readymadeSection.classList.add('hidden');
+    manualSection.classList.add('hidden');
+
+    // Show the selected section
+    if (screenName === 'readymade') {
+        readymadeSection.classList.remove('hidden');
+        headerSubtitle.textContent = 'Upload both XML reports to begin analysis.';
+    } else if (screenName === 'manual') {
+        manualSection.classList.remove('hidden');
+        headerSubtitle.textContent = 'Fill in the details below to create your report.';
+    } else { // 'selection'
+        selectionScreen.classList.remove('hidden');
+        headerSubtitle.textContent = 'Choose a report generation method.';
+    }
+}
+
+
+// ===================================================================================
+// === READYMADE REPORT WORKFLOW =====================================================
+// ===================================================================================
+
 function setupEventListeners(dropZone, fileInput, fileHandler) {
     dropZone.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', (e) => e.target.files[0] && fileHandler(e.target.files[0]));
@@ -31,13 +85,6 @@ function setupEventListeners(dropZone, fileInput, fileHandler) {
     });
 }
 
-setupEventListeners(dropZone1, fileInput1, (file) => handleFile(file, 1));
-setupEventListeners(dropZone2, fileInput2, (file) => handleFile(file, 2));
-analyzeButton.addEventListener('click', analyzeFiles);
-generatePdfButton.addEventListener('click', generatePdfReport);
-
-
-// --- Core Functions ---
 function handleFile(file, fileNumber) {
     if (file.name.split('.').pop().toLowerCase() !== 'xml') {
         updateStatus('Error: Invalid file type. Please select XML.', 'error');
@@ -52,10 +99,8 @@ function handleFile(file, fileNumber) {
         filePath2.textContent = `Selected: ${file.name}`;
     }
     
-    // Reset on new file selection
     lastAnalysisResults = null;
     generatePdfButton.disabled = true;
-    manualInputSection.classList.add('hidden');
     checkFilesReady();
 }
 
@@ -89,20 +134,15 @@ async function analyzeFiles() {
     updateStatus('Processing files...', 'processing');
     analyzeButton.disabled = true;
     generatePdfButton.disabled = true;
-    manualInputSection.classList.add('hidden');
     resultsArea.innerHTML = '<p class="text-center text-slate-500">Analyzing... please wait.</p>';
 
     try {
         const parser = new DOMParser();
-
-        // Read both files first
         const xmlString1 = await selectedFile1.text();
         const xmlDoc1 = parser.parseFromString(xmlString1, "application/xml");
-
         const xmlString2 = await selectedFile2.text();
         const xmlDoc2 = parser.parseFromString(xmlString2, "application/xml");
 
-        // Identify which file is which based on the root element's "Name" attribute
         let paymentAuthDoc, compilationDoc;
         const name1 = xmlDoc1.documentElement.getAttribute('Name');
         const name2 = xmlDoc2.documentElement.getAttribute('Name');
@@ -114,37 +154,22 @@ async function analyzeFiles() {
             paymentAuthDoc = xmlDoc2;
             compilationDoc = xmlDoc1;
         } else {
-            let errorMsg = "Could not identify the report types. Please upload one of each.";
-            if (name1 === name2 && name1) {
-                errorMsg = `Error: Both files appear to be of the same type ('${name1}'). Please upload one of each report.`;
-            }
-            throw new Error(errorMsg);
+            throw new Error("Could not identify report types. Please upload one of each.");
         }
         
-        // Parse the identified documents
         const paymentAuthData = parsePaymentAuthXML(paymentAuthDoc);
         const compilationData = parseCompilationSheetXML(compilationDoc);
-
-        // Use compilation sheet date as primary, fallback to e-payment date
         const reportDate = compilationData.reportDate || paymentAuthData.issueDate;
 
         lastAnalysisResults = reconcileData(compilationData.vouchers, paymentAuthData.voucherDetailsMap, reportDate);
         displayResults(lastAnalysisResults);
         
-        // Pre-fill calculated percentage
-        const { ncddoNormalBills, ncddoEBills, cddoNormalBills, cddoEBills } = lastAnalysisResults;
-        const totalPassedEBills = ncddoEBills.length + cddoEBills.length;
-        const totalPassedBills = totalPassedEBills + ncddoNormalBills.length + cddoNormalBills.length;
-        const percentage = totalPassedBills > 0 ? ((totalPassedEBills / totalPassedBills) * 100).toFixed(2) : "0.00";
-        document.getElementById('percentage-override').value = `${percentage}%`;
-
-        generatePdfButton.disabled = false; // Enable PDF button on success
-        manualInputSection.classList.remove('hidden'); // Show returned bills section
+        generatePdfButton.disabled = false;
 
     } catch (error) {
         console.error('Analysis Error:', error);
         updateStatus(`Error: ${error.message}`, 'error');
-        resultsArea.innerHTML = `<p class="text-center text-red-600">Failed to analyze files. Please check if the files are valid and not corrupted.<br><span class="text-sm">${error.message}</span></p>`;
+        resultsArea.innerHTML = `<p class="text-center text-red-600">Failed to analyze files. Check if they are valid.<br><span class="text-sm">${error.message}</span></p>`;
     } finally {
         analyzeButton.disabled = false;
     }
@@ -152,7 +177,7 @@ async function analyzeFiles() {
 
 function parsePaymentAuthXML(xmlDoc) {
     if (xmlDoc.getElementsByTagName("parsererror").length) {
-        throw new Error("Failed to parse E-Payment Authorization Register. It may be corrupted.");
+        throw new Error("Failed to parse E-Payment Authorization Register.");
     }
     const voucherDetailsMap = new Map();
     const voucherNodes = Array.from(xmlDoc.getElementsByTagName('VoucherNumber'));
@@ -160,16 +185,13 @@ function parsePaymentAuthXML(xmlDoc) {
     for (const voucher of voucherNodes) {
         const voucherNumberStr = String(voucher.getAttribute('VoucherNumber')).trim().split(/[\s\r\n]+/)[0];
         const detailsList = voucher.getElementsByTagName('Details');
-        
         if (detailsList.length > 0) {
             const firstDetail = detailsList[0];
             const billType = firstDetail.getAttribute('billType') || 'Normal';
             const userNm = firstDetail.getAttribute('UserNm') || null;
-            
             const tokenEl = voucher.getElementsByTagName('TokenNumber')[0];
             const tokenStr = tokenEl ? tokenEl.getAttribute('TokenNumber') : '';
             const token = tokenStr ? String(tokenStr).trim().split(/[\s\r\n]+/)[0] : null;
-
             if (voucherNumberStr) {
                 voucherDetailsMap.set(voucherNumberStr, { billType, userNm, token });
             }
@@ -184,13 +206,12 @@ function parsePaymentAuthXML(xmlDoc) {
             reportDate = dateRangeAttr.split(' till ')[0].trim().replace(/-/g, '/');
         }
     }
-
     return { voucherDetailsMap, issueDate: reportDate };
 }
 
 function parseCompilationSheetXML(xmlDoc) {
     if (xmlDoc.getElementsByTagName("parsererror").length) {
-        throw new Error("Failed to parse Voucher Compilation Sheet. It may be corrupted.");
+        throw new Error("Failed to parse Voucher Compilation Sheet.");
     }
     const allVouchers = [];
     const ddoNodes = Array.from(xmlDoc.getElementsByTagName('DDOName'));
@@ -218,19 +239,12 @@ function parseCompilationSheetXML(xmlDoc) {
                     }
                     return null;
                 };
-
                 const objHead = processHead(detail.getAttribute('ObjectHead'));
                 if (objHead) objectHeads.add(objHead);
-
                 const funcHead = processHead(detail.getAttribute('FuncHead'));
                 if (funcHead) funcHeads.add(funcHead);
             }
-            allVouchers.push({
-                voucherNumber,
-                ddoName,
-                objectHeads: Array.from(objectHeads),
-                funcHeads: Array.from(funcHeads)
-            });
+            allVouchers.push({ voucherNumber, ddoName, objectHeads: Array.from(objectHeads), funcHeads: Array.from(funcHeads) });
         }
     }
     
@@ -242,7 +256,6 @@ function parseCompilationSheetXML(xmlDoc) {
             reportDate = dateRangeAttr.split('  ')[0].trim().replace(/-/g, '/');
         }
     }
-
     return { vouchers: allVouchers, reportDate };
 }
 
@@ -251,14 +264,10 @@ function reconcileData(compilationVouchers, paymentAuthMap, issueDate) {
 
     for (const voucher of compilationVouchers) {
         const paymentDetails = paymentAuthMap.get(voucher.voucherNumber);
-
-        // Assign details from lookup or set defaults
         voucher.billType = paymentDetails ? paymentDetails.billType : 'Normal';
         voucher.userNm = paymentDetails ? paymentDetails.userNm : null;
         voucher.token = paymentDetails ? paymentDetails.token : null;
-
         const isNCDDO = voucher.ddoName.toUpperCase().includes('LUCKNOW');
-
         if (isNCDDO) {
             if (voucher.billType === 'Normal') ncddoNormalBills.push(voucher);
             else ncddoEBills.push(voucher);
@@ -276,67 +285,56 @@ function reconcileData(compilationVouchers, paymentAuthMap, issueDate) {
 }
 
 function getDisplayCategory(bill) {
-    // Helper function to get a simple category string for the UI display.
     let categories = [];
     let hasUserNmCategory = false;
-
     if (bill.userNm) {
         if (bill.userNm.includes('[GPFEIS]')) { categories.push('Gpf'); hasUserNmCategory = true; }
         if (bill.userNm.includes('[EIS]')) { categories.push('Salary(eis)'); hasUserNmCategory = true; }
         if (bill.userNm.includes('[GEM]')) { categories.push('Gem'); hasUserNmCategory = true; }
         if (bill.userNm.includes('[Pension]')) { categories.push('Pension'); hasUserNmCategory = true; }
     }
-
     if (!hasUserNmCategory) {
-        if (bill.objectHeads && bill.objectHeads.length > 0) {
-            categories.push(...bill.objectHeads);
-        } else if (bill.funcHeads && bill.funcHeads.length > 0) {
-            categories.push(...bill.funcHeads);
-        }
+        if (bill.objectHeads && bill.objectHeads.length > 0) categories.push(...bill.objectHeads);
+        else if (bill.funcHeads && bill.funcHeads.length > 0) categories.push(...bill.funcHeads);
     }
-    
     if (categories.length === 0) return 'Uncategorized';
     return categories.join(', ');
 }
 
 function displayResults(results) {
     const { ncddoNormalBills, ncddoEBills, cddoNormalBills, cddoEBills } = results;
-    
     let resultsHTML = '';
     const totalVouchers = ncddoNormalBills.length + ncddoEBills.length + cddoNormalBills.length + cddoEBills.length;
 
     const createResultCard = (title, normalBills, eBillCount) => {
         const totalCount = normalBills.length + eBillCount;
         if (totalCount === 0) return '';
-
         let tokenHTML = '';
         if (normalBills.length > 0) {
-            tokenHTML += `<div class="mt-4 pt-3 border-t border-slate-200">
-                            <h4 class="font-semibold text-slate-600 mb-2">Categorized Normal Bills</h4>`;
-            tokenHTML += `<div class="space-y-2">
-                ${normalBills.map(bill => `
-                    <div class="flex items-start gap-3 p-2 bg-white rounded-md border border-slate-200">
-                        <span class="bg-blue-100 text-blue-800 text-xs font-mono font-medium px-2.5 py-1 rounded-full mt-0.5">${bill.token || 'N/A'}</span>
-                        <div class="flex-1 text-sm">
-                            <span class="font-medium text-slate-800">${getDisplayCategory(bill)}</span>
-                            <span class="text-slate-500 text-xs block">(${bill.voucherNumber})</span>
+            tokenHTML = `<div class="mt-4 pt-3 border-t border-slate-200">
+                <h4 class="font-semibold text-slate-600 mb-2">Categorized Normal Bills</h4>
+                <div class="space-y-2">
+                    ${normalBills.map(bill => `
+                        <div class="flex items-start gap-3 p-2 bg-white rounded-md border border-slate-200">
+                            <span class="bg-blue-100 text-blue-800 text-xs font-mono font-medium px-2.5 py-1 rounded-full mt-0.5">${bill.token || 'N/A'}</span>
+                            <div class="flex-1 text-sm">
+                                <span class="font-medium text-slate-800">${getDisplayCategory(bill)}</span>
+                                <span class="text-slate-500 text-xs block">(${bill.voucherNumber})</span>
+                            </div>
                         </div>
-                    </div>
-                `).join('')}
-            </div>`;
-            tokenHTML += `</div>`;
-        }
-
-        return `
-            <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 animate-fade-in">
-                <h3 class="text-lg font-bold text-slate-700 mb-3">${title}</h3>
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between items-center"><span class="text-slate-600">Total Vouchers Found:</span><span class="font-bold text-slate-800 text-base">${totalCount}</span></div>
-                    <div class="flex justify-between items-center pl-4"><span class="text-slate-500">- Normal Bills:</span><span class="font-medium text-slate-600">${normalBills.length}</span></div>
-                    <div class="flex justify-between items-center pl-4"><span class="text-slate-500">- e-Bills:</span><span class="font-medium text-slate-600">${eBillCount}</span></div>
+                    `).join('')}
                 </div>
-                ${tokenHTML}
             </div>`;
+        }
+        return `<div class="bg-slate-50 border border-slate-200 rounded-lg p-4 animate-fade-in">
+            <h3 class="text-lg font-bold text-slate-700 mb-3">${title}</h3>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between items-center"><span class="text-slate-600">Total Vouchers Found:</span><span class="font-bold text-slate-800 text-base">${totalCount}</span></div>
+                <div class="flex justify-between items-center pl-4"><span class="text-slate-500">- Normal Bills:</span><span class="font-medium text-slate-600">${normalBills.length}</span></div>
+                <div class="flex justify-between items-center pl-4"><span class="text-slate-500">- e-Bills:</span><span class="font-medium text-slate-600">${eBillCount}</span></div>
+            </div>
+            ${tokenHTML}
+        </div>`;
     };
 
     resultsHTML += createResultCard("NCDDO Analysis (Lucknow)", ncddoNormalBills, ncddoEBills.length);
@@ -344,112 +342,78 @@ function displayResults(results) {
 
     if (totalVouchers === 0) {
         resultsHTML = `<div class="text-center py-10 animate-fade-in">
-                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1"><path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <h3 class="mt-2 text-lg font-medium text-slate-800">No Vouchers Found</h3>
-                <p class="mt-1 text-sm text-slate-500">The analyzer could not find any vouchers in the provided files.</p>
-            </div>`;
+            <h3 class="mt-2 text-lg font-medium text-slate-800">No Vouchers Found</h3>
+            <p class="mt-1 text-sm text-slate-500">The analyzer could not find any vouchers in the provided files.</p>
+        </div>`;
     }
-
     resultsArea.innerHTML = resultsHTML;
     updateStatus('Analysis complete.', 'success');
 }
 
-function titleCaseCategory(cat) {
-    // Handle special hardcoded cases first to preserve their specific casing
-    if (cat.toLowerCase() === 'gpf') return 'Gpf';
-    if (cat.toLowerCase() === 'gem') return 'Gem';
-    if (cat.toLowerCase() === 'salary(eis)') return 'Salary(eis)';
-
-    let textPart = cat;
-    let codePart = '';
-
-    // Find and separate the code part like [13] or [04]
-    const match = cat.match(/(\[\d+\])$/);
-    if (match) {
-        textPart = cat.substring(0, match.index).trim();
-        codePart = match[0];
-    }
-
-    // Convert the main text part to Title Case
-    const titleCasedText = textPart
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ');
-
-    // Rejoin the text and code parts
-    return `${titleCasedText}${codePart}`;
-}
-
-function generatePdfReport() {
+function generateReadymadePdfReport() {
     if (!lastAnalysisResults) {
-        alert("Please analyze the reports first before generating a PDF.");
+        alert("Please analyze the reports first.");
         return;
     }
-
-    const doc = new window.jspdf.jsPDF();
     const { ncddoNormalBills, ncddoEBills, cddoNormalBills, cddoEBills, issueDate } = lastAnalysisResults;
-
-    // --- Data Preparation ---
     const reportDate = issueDate || new Date().toLocaleDateString('en-GB');
-    const getInputValue = (id) => {
-        const value = parseInt(document.getElementById(id).value, 10) || 0;
-        return Math.max(0, value); // Ensure value is not negative
-    };
 
     const data = {
-        eBillsNCDDO: { passed: ncddoEBills.length, returned: getInputValue('returned-ebills-ncddo') },
-        eBillsCDDO: { passed: cddoEBills.length, returned: getInputValue('returned-ebills-cddo') },
-        normalBillsNCDDO: { passed: ncddoNormalBills.length, returned: getInputValue('returned-normal-ncddo') },
-        normalBillsCDDO: { passed: cddoNormalBills.length, returned: getInputValue('returned-normal-cddo') },
+        eBillsNCDDO: { passed: ncddoEBills.length, returned: 0 },
+        eBillsCDDO: { passed: cddoEBills.length, returned: 0 },
+        normalBillsNCDDO: { passed: ncddoNormalBills.length, returned: 0 },
+        normalBillsCDDO: { passed: cddoNormalBills.length, returned: 0 },
     };
 
     const getRemarks = (bills) => {
         if (bills.length === 0) return '';
-        
         const counts = bills.reduce((acc, bill) => {
-            let categories = [];
-            let hasUserNmCategory = false;
-
-            if (bill.userNm) {
-                if (bill.userNm.includes('[GPFEIS]')) { categories.push('Gpf'); hasUserNmCategory = true; }
-                if (bill.userNm.includes('[EIS]')) { categories.push('Salary(eis)'); hasUserNmCategory = true; }
-                if (bill.userNm.includes('[GEM]')) { categories.push('Gem'); hasUserNmCategory = true; }
-                if (bill.userNm.includes('[Pension]')) { categories.push('Pension'); hasUserNmCategory = true; }
-            }
-
-            if (!hasUserNmCategory) {
-                if (bill.objectHeads && bill.objectHeads.length > 0) {
-                    categories.push(...bill.objectHeads);
-                } else if (bill.funcHeads && bill.funcHeads.length > 0) {
-                    categories.push(...bill.funcHeads);
-                }
-            }
-
-            for (const category of categories) {
-                acc[category] = (acc[category] || 0) + 1;
-            }
-
+            const category = getDisplayCategory(bill);
+            acc[category] = (acc[category] || 0) + 1;
             return acc;
         }, {});
-        
-        const entries = Object.entries(counts);
-        return entries.map(([cat, count]) => {
-            const billText = count > 1 ? 'Bills' : 'Bill';
-            // Use the new title case function here
-            const formattedCat = titleCaseCategory(cat);
-            return `• ${formattedCat}- ${count} ${billText}`;
-        }).join('\n');
+        return Object.entries(counts).map(([cat, count]) => `• ${cat}- ${count} ${count > 1 ? 'Bills' : 'Bill'}`).join('\n');
     };
 
     data.normalBillsNCDDO.remarks = getRemarks(ncddoNormalBills);
     data.normalBillsCDDO.remarks = getRemarks(cddoNormalBills);
 
-    let percentage = document.getElementById('percentage-override').value.trim();
-    if (percentage && !percentage.endsWith('%')) {
-        percentage += '%';
-    }
+    const totalPassedEBills = data.eBillsNCDDO.passed + data.eBillsCDDO.passed;
+    const totalPassedBills = totalPassedEBills + data.normalBillsNCDDO.passed + data.normalBillsCDDO.passed;
+    const percentage = totalPassedBills > 0 ? `${((totalPassedEBills / totalPassedBills) * 100).toFixed(2)}%` : "0.00%";
 
-    // --- PDF Generation ---
+    generatePdf(reportDate, data, percentage);
+}
+
+
+// ===================================================================================
+// === MANUAL REPORT WORKFLOW ========================================================
+// ===================================================================================
+
+function generateManualPdfReport() {
+    const getVal = (id) => parseInt(document.getElementById(id).value, 10) || 0;
+
+    const data = {
+        eBillsNCDDO: { passed: getVal('manual-ebills-passed-ncddo'), returned: getVal('manual-ebills-returned-ncddo') },
+        eBillsCDDO: { passed: getVal('manual-ebills-passed-cddo'), returned: getVal('manual-ebills-returned-cddo') },
+        normalBillsNCDDO: { passed: getVal('manual-normal-passed-ncddo'), returned: getVal('manual-normal-returned-ncddo'), remarks: document.getElementById('manual-remarks-ncddo').value },
+        normalBillsCDDO: { passed: getVal('manual-normal-passed-cddo'), returned: getVal('manual-normal-returned-cddo'), remarks: document.getElementById('manual-remarks-cddo').value },
+    };
+
+    const reportDate = document.getElementById('manual-report-date').value.trim() || new Date().toLocaleDateString('en-GB');
+    const percentage = document.getElementById('manual-percentage').value.trim() || 'Not provided';
+
+    generatePdf(reportDate, data, percentage);
+}
+
+
+// ===================================================================================
+// === SHARED PDF GENERATION LOGIC ===================================================
+// ===================================================================================
+
+function generatePdf(reportDate, data, percentage) {
+    const doc = new window.jspdf.jsPDF();
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.text("PAO, GSI(NR),Lucknow", 105, 20, { align: "center" });
@@ -463,7 +427,6 @@ function generatePdfReport() {
     const colWidths = [60, 25, 25, 25, 35];
     const headers = ["Type of Bills", "Passed", "Returned", "Total", "Remarks"];
     const headerHeight = 10;
-    const verticalPadding = 2; // Further reduced for compactness
     const lineHeight = 5;
 
     doc.setFont("helvetica", "bold");
@@ -479,8 +442,8 @@ function generatePdfReport() {
     const rows = [
         ["E. Bills- NCDDO", data.eBillsNCDDO.passed, data.eBillsNCDDO.returned, data.eBillsNCDDO.passed + data.eBillsNCDDO.returned, ""],
         ["E. Bills- CDDO", data.eBillsCDDO.passed, data.eBillsCDDO.returned, data.eBillsCDDO.passed + data.eBillsCDDO.returned, ""],
-        ["Normal Bills- NCDDO", data.normalBillsNCDDO.passed, data.normalBillsNCDDO.returned, data.normalBillsNCDDO.passed + data.normalBillsNCDDO.returned, data.normalBillsNCDDO.remarks],
-        ["Normal Bills- CDDO", data.normalBillsCDDO.passed, data.normalBillsCDDO.returned, data.normalBillsCDDO.passed + data.normalBillsCDDO.returned, data.normalBillsCDDO.remarks],
+        ["Normal Bills- NCDDO", data.normalBillsNCDDO.passed, data.normalBillsNCDDO.returned, data.normalBillsNCDDO.passed + data.normalBillsNCDDO.returned, data.normalBillsNCDDO.remarks || ""],
+        ["Normal Bills- CDDO", data.normalBillsCDDO.passed, data.normalBillsCDDO.returned, data.normalBillsCDDO.passed + data.normalBillsCDDO.returned, data.normalBillsCDDO.remarks || ""],
     ];
 
     let currentY = headerY + headerHeight;
@@ -488,25 +451,18 @@ function generatePdfReport() {
     rows.forEach((row) => {
         const remarksText = String(row[4]);
         const textLines = doc.splitTextToSize(remarksText, colWidths[4] - 4);
-        const calculatedHeight = (textLines.length * lineHeight) + (verticalPadding * 2);
-        
-        // Use a smaller, fixed height for rows that have no remarks to reduce empty space
+        const calculatedHeight = (textLines.length * lineHeight) + 4;
         const rowHeight = remarksText ? Math.max(10, calculatedHeight) : 10;
 
         row.forEach((cell, colIndex) => {
             const xPos = tableX + colWidths.slice(0, colIndex).reduce((a, b) => a + b, 0);
             doc.rect(xPos, currentY, colWidths[colIndex], rowHeight);
-            
-            // Calculate the absolute vertical center of the current cell
             const middleY = currentY + rowHeight / 2;
-
-            if (colIndex === 4 && remarksText) { // Remarks column (multi-line)
-                // For a block of text, we calculate an offset to center the entire block
+            if (colIndex === 4 && remarksText) {
                 const textBlockHeight = (textLines.length - 1) * lineHeight;
                 const startY = middleY - (textBlockHeight / 2);
                 doc.text(textLines, xPos + 2, startY, { baseline: 'middle' });
-            } else { // All other columns (single-line)
-                 // Using baseline 'middle' vertically centers the text at the middleY coordinate
+            } else {
                  doc.text(String(cell), xPos + colWidths[colIndex] / 2, middleY, { align: "center", baseline: 'middle' });
             }
         });
