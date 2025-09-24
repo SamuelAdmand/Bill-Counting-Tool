@@ -43,7 +43,11 @@ function initialize() {
     analyzeButton.addEventListener('click', analyzeFiles);
     generatePdfButton.addEventListener('click', generateReadymadePdfReport);
 
-    // Manual Workflow Listener
+    // Manual Workflow Listeners
+    manualSection.addEventListener('input', handleManualFormInput);
+    manualSection.addEventListener('keydown', handleRemarksKeydown);
+    manualSection.addEventListener('click', handleRemarksCellClick);
+    manualSection.addEventListener('focusin', handleRemarksFocus);
     generateManualPdfButton.addEventListener('click', generateManualPdfReport);
 }
 
@@ -390,14 +394,118 @@ function generateReadymadePdfReport() {
 // === MANUAL REPORT WORKFLOW ========================================================
 // ===================================================================================
 
+function handleManualFormInput(event) {
+    const target = event.target;
+    
+    if (target.classList.contains('remarks-textarea')) {
+        autoexpandTextarea(target);
+    }
+
+    if (target.classList.contains('manual-input')) {
+        updateManualTotal(target);
+    }
+}
+
+function handleRemarksCellClick(event) {
+    const target = event.target;
+    if (target.classList.contains('remarks-cell')) {
+        const textarea = target.querySelector('.remarks-textarea');
+        if (textarea) {
+            textarea.focus();
+        }
+    }
+}
+
+function handleRemarksFocus(event) {
+    const textarea = event.target;
+    if (textarea.classList.contains('remarks-textarea')) {
+        if (textarea.value.trim() === '') {
+            textarea.value = '• ';
+        }
+        autoexpandTextarea(textarea);
+    }
+}
+
+function autoexpandTextarea(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
+function handleRemarksKeydown(event) {
+    const textarea = event.target;
+    if (!textarea.classList.contains('remarks-textarea')) return;
+
+    const bullet = '• ';
+    const indent = '  '; // Two spaces, same length as the bullet string
+
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        
+        let insertion = '\n';
+        if (event.ctrlKey && !event.shiftKey) {
+            // Ctrl+Enter: New bullet point
+            insertion += bullet;
+        } else {
+            // Enter or Ctrl+Shift+Enter: New line with indentation
+            // Find the start of the current line to check if it's a bulleted line
+            const cursorPosition = textarea.selectionStart;
+            const textBeforeCursor = textarea.value.substring(0, cursorPosition);
+            const lineStart = textBeforeCursor.lastIndexOf('\n') + 1;
+            const currentLine = textarea.value.substring(lineStart, cursorPosition);
+
+            if (currentLine.trim().startsWith('•')) {
+                insertion += indent;
+            }
+        }
+        
+        // Insert the text and update cursor position
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        textarea.value = textarea.value.substring(0, start) + insertion + textarea.value.substring(end);
+        textarea.selectionStart = textarea.selectionEnd = start + insertion.length;
+        
+        autoexpandTextarea(textarea);
+    }
+
+    if (event.key === 'Backspace') {
+        const value = textarea.value;
+        const start = textarea.selectionStart;
+
+        // If backspacing at the start of an indented line, remove the indent
+        if (value.substring(start - indent.length, start) === indent) {
+            event.preventDefault();
+            textarea.value = value.substring(0, start - indent.length) + value.substring(start);
+            textarea.selectionStart = textarea.selectionEnd = start - indent.length;
+        }
+        // If backspacing at the start of a bulleted line, remove the bullet
+        else if (value.substring(start - bullet.length, start) === bullet) {
+            event.preventDefault();
+            textarea.value = value.substring(0, start - bullet.length) + value.substring(start);
+            textarea.selectionStart = textarea.selectionEnd = start - bullet.length;
+        }
+    }
+}
+
+
+function updateManualTotal(inputElement) {
+    const row = inputElement.dataset.row;
+    if (!row) return;
+
+    const passedValue = parseInt(document.getElementById(`manual-passed-${row}`).value, 10) || 0;
+    const returnedValue = parseInt(document.getElementById(`manual-returned-${row}`).value, 10) || 0;
+    
+    const totalElement = document.getElementById(`manual-total-${row}`);
+    totalElement.textContent = passedValue + returnedValue;
+}
+
 function generateManualPdfReport() {
     const getVal = (id) => parseInt(document.getElementById(id).value, 10) || 0;
 
     const data = {
-        eBillsNCDDO: { passed: getVal('manual-ebills-passed-ncddo'), returned: getVal('manual-ebills-returned-ncddo') },
-        eBillsCDDO: { passed: getVal('manual-ebills-passed-cddo'), returned: getVal('manual-ebills-returned-cddo') },
-        normalBillsNCDDO: { passed: getVal('manual-normal-passed-ncddo'), returned: getVal('manual-normal-returned-ncddo'), remarks: document.getElementById('manual-remarks-ncddo').value },
-        normalBillsCDDO: { passed: getVal('manual-normal-passed-cddo'), returned: getVal('manual-normal-returned-cddo'), remarks: document.getElementById('manual-remarks-cddo').value },
+        eBillsNCDDO: { passed: getVal('manual-passed-ebills-ncddo'), returned: getVal('manual-returned-ebills-ncddo') },
+        eBillsCDDO: { passed: getVal('manual-passed-ebills-cddo'), returned: getVal('manual-returned-ebills-cddo') },
+        normalBillsNCDDO: { passed: getVal('manual-passed-normal-ncddo'), returned: getVal('manual-returned-normal-ncddo'), remarks: document.getElementById('manual-remarks-ncddo').value },
+        normalBillsCDDO: { passed: getVal('manual-passed-normal-cddo'), returned: getVal('manual-returned-normal-cddo'), remarks: document.getElementById('manual-remarks-cddo').value },
     };
 
     const reportDate = document.getElementById('manual-report-date').value.trim() || new Date().toLocaleDateString('en-GB');

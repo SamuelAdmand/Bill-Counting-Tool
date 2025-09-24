@@ -99,75 +99,85 @@
             <!-- === Manual Report Section === -->
             <div id="manualSection" class="hidden">
                 <button class="back-btn mb-4 text-sm font-medium text-blue-600 hover:underline">&larr; Back to selection</button>
-                <div class="space-y-8 max-w-4xl mx-auto">
-                    <!-- Bill Counts -->
-                    <div class="p-6 border rounded-lg">
-                        <h3 class="text-lg font-semibold text-slate-700 mb-4">Bill Counts</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div>
-                                <label for="manual-ebills-passed-ncddo" class="block text-sm font-medium text-slate-600">E. Bills Passed (NCDDO)</label>
-                                <input type="number" id="manual-ebills-passed-ncddo" value="0" min="0" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                
+                <div class="max-w-4xl mx-auto">
+                    <!-- PDF-like container -->
+                    <div id="pdf-form-container" class="bg-white p-8 md:p-12 border border-slate-200 shadow-lg">
+                        <!-- Header -->
+                        <div class="text-center mb-8">
+                            <h2 class="text-lg font-bold">PAO, GSI(NR),Lucknow</h2>
+                            <p class="text-base">Daily Status Report of E. Bills</p>
+                        </div>
+                        
+                        <!-- Date -->
+                        <div class="flex justify-start mb-6">
+                            <div class="flex items-center gap-2">
+                                <label for="manual-report-date" class="font-bold text-sm">Date:</label>
+                                <input type="text" id="manual-report-date" placeholder="e.g., 24/09/2025" class="p-1 border-b-2 border-slate-300 focus:border-blue-500 outline-none text-sm w-32">
                             </div>
-                            <div>
-                                <label for="manual-ebills-returned-ncddo" class="block text-sm font-medium text-slate-600">E. Bills Returned (NCDDO)</label>
-                                <input type="number" id="manual-ebills-returned-ncddo" value="0" min="0" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                        </div>
+
+                        <!-- Table -->
+                        <div class="border-t border-b border-black grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center font-bold text-sm">
+                            <div class="p-2 border-r border-black">Type of Bills</div>
+                            <div class="p-2 border-r border-black">Passed</div>
+                            <div class="p-2 border-r border-black">Returned</div>
+                            <div class="p-2 border-r border-black">Total</div>
+                            <div class="p-2">Remarks</div>
+                        </div>
+                        
+                        <!-- Table Rows -->
+                        <div id="manual-table-body">
+                            <!-- E. Bills NCDDO -->
+                            <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center text-sm border-b border-black items-center">
+                                <div class="p-2 border-r border-black text-left">E. Bills- NCDDO</div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-passed-ebills-ncddo" class="w-full text-center outline-none manual-input" data-row="ebills-ncddo" data-col="passed"></div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-returned-ebills-ncddo" class="w-full text-center outline-none manual-input" data-row="ebills-ncddo" data-col="returned"></div>
+                                <div class="p-2 border-r border-black font-bold" id="manual-total-ebills-ncddo">0</div>
+                                <div class="p-2 bg-slate-100"></div>
                             </div>
-                             <div>
-                                <label for="manual-ebills-passed-cddo" class="block text-sm font-medium text-slate-600">E. Bills Passed (CDDO)</label>
-                                <input type="number" id="manual-ebills-passed-cddo" value="0" min="0" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                            <!-- E. Bills CDDO -->
+                            <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center text-sm border-b border-black items-center">
+                                <div class="p-2 border-r border-black text-left">E. Bills- CDDO</div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-passed-ebills-cddo" class="w-full text-center outline-none manual-input" data-row="ebills-cddo" data-col="passed"></div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-returned-ebills-cddo" class="w-full text-center outline-none manual-input" data-row="ebills-cddo" data-col="returned"></div>
+                                <div class="p-2 border-r border-black font-bold" id="manual-total-ebills-cddo">0</div>
+                                <div class="p-2 bg-slate-100"></div>
                             </div>
-                            <div>
-                                <label for="manual-ebills-returned-cddo" class="block text-sm font-medium text-slate-600">E. Bills Returned (CDDO)</label>
-                                <input type="number" id="manual-ebills-returned-cddo" value="0" min="0" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                            <!-- Normal Bills NCDDO -->
+                            <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center text-sm border-b border-black items-stretch">
+                                <div class="p-2 border-r border-black text-left">Normal Bills- NCDDO</div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-passed-normal-ncddo" class="w-full text-center outline-none manual-input" data-row="normal-ncddo" data-col="passed"></div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-returned-normal-ncddo" class="w-full text-center outline-none manual-input" data-row="normal-ncddo" data-col="returned"></div>
+                                <div class="p-2 border-r border-black font-bold flex items-center justify-center" id="manual-total-normal-ncddo">0</div>
+                                <div class="p-1 remarks-cell cursor-text"><textarea id="manual-remarks-ncddo" class="w-full h-full outline-none text-xs remarks-textarea" placeholder=""></textarea></div>
                             </div>
-                            <div>
-                                <label for="manual-normal-passed-ncddo" class="block text-sm font-medium text-slate-600">Normal Passed (NCDDO)</label>
-                                <input type="number" id="manual-normal-passed-ncddo" value="0" min="0" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                            <!-- Normal Bills CDDO -->
+                            <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center text-sm border-b border-black items-stretch">
+                                <div class="p-2 border-r border-black text-left">Normal Bills- CDDO</div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-passed-normal-cddo" class="w-full text-center outline-none manual-input" data-row="normal-cddo" data-col="passed"></div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-returned-normal-cddo" class="w-full text-center outline-none manual-input" data-row="normal-cddo" data-col="returned"></div>
+                                <div class="p-2 border-r border-black font-bold flex items-center justify-center" id="manual-total-normal-cddo">0</div>
+                                <div class="p-1 remarks-cell cursor-text"><textarea id="manual-remarks-cddo" class="w-full h-full outline-none text-xs remarks-textarea" placeholder=""></textarea></div>
                             </div>
-                            <div>
-                                <label for="manual-normal-returned-ncddo" class="block text-sm font-medium text-slate-600">Normal Returned (NCDDO)</label>
-                                <input type="number" id="manual-normal-returned-ncddo" value="0" min="0" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="mt-8">
+                            <div class="flex items-center gap-2 mb-12">
+                                <label for="manual-percentage" class="font-bold text-sm">Percentage of E. Bills being passed:</label>
+                                <input type="text" id="manual-percentage" placeholder="e.g., 85.50%" class="p-1 border-b-2 border-slate-300 focus:border-blue-500 outline-none text-sm w-32">
                             </div>
-                            <div>
-                                <label for="manual-normal-passed-cddo" class="block text-sm font-medium text-slate-600">Normal Passed (CDDO)</label>
-                                <input type="number" id="manual-normal-passed-cddo" value="0" min="0" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
-                            </div>
-                            <div>
-                                <label for="manual-normal-returned-cddo" class="block text-sm font-medium text-slate-600">Normal Returned (CDDO)</label>
-                                <input type="number" id="manual-normal-returned-cddo" value="0" min="0" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                            <div class="text-right text-sm">
+                                <p class="font-medium">Assistant Accounts Officer</p>
+                                <p>Pre-Check Section</p>
+                                <p>PAO, GSI(NR), Lucknow</p>
                             </div>
                         </div>
                     </div>
-                    <!-- Remarks -->
-                    <div class="p-6 border rounded-lg">
-                        <h3 class="text-lg font-semibold text-slate-700 mb-4">Remarks for Normal Bills</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label for="manual-remarks-ncddo" class="block text-sm font-medium text-slate-600">NCDDO Remarks</label>
-                                <textarea id="manual-remarks-ncddo" rows="4" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., • Gpf- 2 Bills&#10;• Pension- 3 Bills"></textarea>
-                            </div>
-                            <div>
-                                <label for="manual-remarks-cddo" class="block text-sm font-medium text-slate-600">CDDO Remarks</label>
-                                <textarea id="manual-remarks-cddo" rows="4" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., • Gem- 5 Bills"></textarea>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Report Details -->
-                    <div class="p-6 border rounded-lg">
-                        <h3 class="text-lg font-semibold text-slate-700 mb-4">Report Details</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label for="manual-report-date" class="block text-sm font-medium text-slate-600">Report Date</label>
-                                <input type="text" id="manual-report-date" placeholder="e.g., 24/09/2025" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
-                            </div>
-                            <div>
-                                <label for="manual-percentage" class="block text-sm font-medium text-slate-600">E. Bill Percentage</label>
-                                <input type="text" id="manual-percentage" placeholder="e.g., 85.50%" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
-                            </div>
-                        </div>
-                    </div>
+
                     <!-- Generate Button -->
-                    <div class="text-center pt-4">
+                    <div class="text-center mt-8">
                         <button id="generateManualPdfButton" class="w-full max-w-xs bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-all duration-300">
                             Generate PDF Report
                         </button>

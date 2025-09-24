@@ -17,3 +17,13 @@ body {
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
 }
+
+/* Styles for the auto-expanding, bulleted remarks textarea */
+.remarks-textarea {
+    resize: none; /* Disable manual resizing by the user */
+    overflow: hidden; /* Hide the scrollbar */
+    /* We remove text-indent and use a simple padding */
+    padding-left: 0.5rem; 
+    box-sizing: border-box;
+    line-height: 1.6; /* Adjust line height for better readability */
+}
