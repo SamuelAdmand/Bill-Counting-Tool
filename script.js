@@ -564,7 +564,7 @@ function generatePdf(reportDate, data, percentage) {
     doc.text(`Percentage of E. Bills being passed: ${percentage}`, 20, footerY);
     doc.setFont("helvetica", "normal");
     doc.text("Assistant Accounts Officer", 190, footerY + 20, { align: "right" });
-    doc.text("Pre-Check Section", 190, footerY + 25, { align: "right" });
+    doc.text("DDO (Admin Section)", 190, footerY + 25, { align: "right" });
     doc.text("PAO, GSI(NR), Lucknow", 190, footerY + 30, { align: "right" });
     doc.save(`Daily_Status_Report_${reportDate.replace(/\//g, '-')}.pdf`);
 }
