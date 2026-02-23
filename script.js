@@ -63,6 +63,22 @@ function showScreen(screenName) {
     } else if (screenName === 'manual') {
         manualSection.classList.remove('hidden');
         headerSubtitle.textContent = 'Fill in the details below to create your report.';
+
+        // Setup signature toggle listener if not already there
+        const sigToggle = document.getElementById('include-signature');
+        if (sigToggle && !sigToggle.hasAttribute('data-listener-attached')) {
+            sigToggle.addEventListener('change', (e) => {
+                const sigContainer = document.getElementById('signature-container');
+                if (sigContainer) {
+                    sigContainer.style.opacity = e.target.checked ? '1' : '0';
+                }
+            });
+            sigToggle.setAttribute('data-listener-attached', 'true');
+
+            // initialize state
+            const sigContainer = document.getElementById('signature-container');
+            if (sigContainer) sigContainer.style.opacity = sigToggle.checked ? '1' : '0';
+        }
     } else {
         selectionScreen.classList.remove('hidden');
         headerSubtitle.textContent = 'Choose a report generation method.';
@@ -501,7 +517,8 @@ function generateManualPdfReport() {
     };
     const reportDate = document.getElementById('manual-report-date').value.trim() || new Date().toLocaleDateString('en-GB');
     const percentage = document.getElementById('manual-percentage').value.trim() || 'Not provided';
-    generatePdf(reportDate, data, percentage);
+    const includeSignature = document.getElementById('include-signature').checked;
+    generatePdf(reportDate, data, percentage, includeSignature);
 }
 
 
@@ -509,7 +526,7 @@ function generateManualPdfReport() {
 // === SHARED PDF GENERATION LOGIC ===================================================
 // ===================================================================================
 
-function generatePdf(reportDate, data, percentage) {
+function generatePdf(reportDate, data, percentage, includeSignature = true) {
     const doc = new window.jspdf.jsPDF();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
@@ -570,7 +587,7 @@ function generatePdf(reportDate, data, percentage) {
     // in the generated PDF. The height will automatically scale to match.
     // ------------------------------------------------------------------------
     const sigImg = document.getElementById('signature-img');
-    if (sigImg && sigImg.complete && sigImg.naturalWidth !== 0) {
+    if (includeSignature && sigImg && sigImg.complete && sigImg.naturalWidth !== 0) {
 
         // CHANGE THIS VALUE TO RESIZE (in millimeters)
         // E.g., const sigWidth = 25; (smaller) or const sigWidth = 45; (bigger)

@@ -238,24 +238,40 @@
                         </div>
 
                         <!-- Footer Section: Contains signature, percentage summary, and approval details -->
-                        <div class="mt-8 relative">
-                            <div class="flex items-center gap-2 mb-12">
+                        <div class="mt-8">
+                            <div class="flex items-center gap-2 mb-8">
                                 <label for="manual-percentage" class="font-bold text-sm">Percentage of E. Bills being
                                     passed:</label>
                                 <input type="text" id="manual-percentage" placeholder="e.g., 85.50%"
                                     class="p-1 border-b-2 border-slate-300 focus:border-blue-500 outline-none text-sm w-32">
                             </div>
 
-                            <!-- Centered Signature -->
-                            <div class="absolute w-full flex justify-end -mt-16">
-                                <img id="signature-img" src="signature.png" alt="Signature" class="h-16 w-auto">
-                            </div>
+                            <!-- Right-aligned container for toggle, signature, and text -->
+                            <div class="flex flex-col items-end text-sm mt-4">
+                                <!-- Signature Toggle -->
+                                <label for="include-signature"
+                                    class="flex items-center gap-2 mb-4 cursor-pointer select-none group bg-slate-50 p-2 rounded hover:bg-slate-100 transition-colors">
+                                    <input type="checkbox" id="include-signature"
+                                        class="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                                        checked>
+                                    <span
+                                        class="font-bold text-sm text-slate-700 group-hover:text-blue-700 transition-colors">Include
+                                        Signature in PDF</span>
+                                </label>
 
-                            <!-- Authority/Signatory details right justified under the signature -->
-                            <div class="text-right text-sm relative z-10">
-                                <p class="font-medium">Assistant Accounts Officer</p>
-                                <p>Pre-Check Section</p>
-                                <p>PAO, GSI(NR), Lucknow</p>
+                                <!-- Signature Image Area -->
+                                <div id="signature-container"
+                                    class="h-16 w-32 flex justify-end items-end mb-1 transition-opacity duration-200">
+                                    <img id="signature-img" src="signature.png" alt="Signature"
+                                        class="max-h-full max-w-full">
+                                </div>
+
+                                <!-- Authority/Signatory details right justified -->
+                                <div class="text-right text-sm">
+                                    <p class="font-medium">Assistant Accounts Officer</p>
+                                    <p>Pre-Check Section</p>
+                                    <p>PAO, GSI(NR), Lucknow</p>
+                                </div>
                             </div>
                         </div>
                     </div>
