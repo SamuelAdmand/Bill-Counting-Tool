@@ -100,7 +100,7 @@ function handleFile(file, fileNumber) {
         selectedFile2 = file;
         filePath2.textContent = `Selected: ${file.name}`;
     }
-    
+
     lastAnalysisResults = null;
     previewReportButton.disabled = true;
     previewReportButton.textContent = 'Generate PDF Report';
@@ -159,15 +159,15 @@ async function analyzeFiles() {
         } else {
             throw new Error("Could not identify report types. Please upload one of each.");
         }
-        
+
         const paymentAuthData = parsePaymentAuthXML(paymentAuthDoc);
         const compilationData = parseCompilationSheetXML(compilationDoc);
         const reportDate = compilationData.reportDate || paymentAuthData.issueDate;
 
         lastAnalysisResults = reconcileData(compilationData.vouchers, paymentAuthData.voucherDetailsMap, reportDate);
-        
+
         displayResults(lastAnalysisResults);
-        
+
         previewReportButton.disabled = false;
         previewReportButton.textContent = 'Preview Report';
 
@@ -396,9 +396,9 @@ function populateAndShowManualForm() {
     const remarksCDDO = getRemarksFromBills(cddoNormalBills);
     setInputValue('manual-remarks-ncddo', remarksNCDDO);
     setInputValue('manual-remarks-cddo', remarksCDDO);
-    
+
     setInputValue('manual-report-date', issueDate || new Date().toLocaleDateString('en-GB'));
-    
+
     const totalPassedEBills = ncddoEBills.length + cddoEBills.length;
     const totalPassedBills = totalPassedEBills + ncddoNormalBills.length + cddoNormalBills.length;
     const percentage = totalPassedBills > 0 ? `${((totalPassedEBills / totalPassedBills) * 100).toFixed(2)}%` : "0.00%";
@@ -553,7 +553,7 @@ function generatePdf(reportDate, data, percentage) {
                 const startY = middleY - (textBlockHeight / 2);
                 doc.text(textLines, xPos + 2, startY, { baseline: 'middle' });
             } else {
-                 doc.text(String(cell), xPos + colWidths[colIndex] / 2, middleY, { align: "center", baseline: 'middle' });
+                doc.text(String(cell), xPos + colWidths[colIndex] / 2, middleY, { align: "center", baseline: 'middle' });
             }
         });
         currentY += rowHeight;
@@ -563,6 +563,25 @@ function generatePdf(reportDate, data, percentage) {
     doc.setFontSize(11);
     doc.text(`Percentage of E. Bills being passed: ${percentage}`, 20, footerY);
     doc.setFont("helvetica", "normal");
+
+    // ------------------------------------------------------------------------
+    // SIGNATURE IMAGE SETTINGS 
+    // Modify 'sigWidth' below to explicitly change the size of the signature
+    // in the generated PDF. The height will automatically scale to match.
+    // ------------------------------------------------------------------------
+    const sigImg = document.getElementById('signature-img');
+    if (sigImg && sigImg.complete && sigImg.naturalWidth !== 0) {
+
+        // CHANGE THIS VALUE TO RESIZE (in millimeters)
+        // E.g., const sigWidth = 25; (smaller) or const sigWidth = 45; (bigger)
+        const sigWidth = 23;
+
+        const sigHeight = (sigImg.naturalHeight / sigImg.naturalWidth) * sigWidth;
+        const sigX = 183 - sigWidth; // align right edge to 190
+        const sigY = footerY + 17 - sigHeight; // position above text
+        doc.addImage(sigImg, 'PNG', sigX, sigY, sigWidth, sigHeight);
+    }
+
     doc.text("Assistant Accounts Officer", 190, footerY + 20, { align: "right" });
     doc.text("Pre-Check Section", 190, footerY + 25, { align: "right" });
     doc.text("PAO, GSI(NR), Lucknow", 190, footerY + 30, { align: "right" });

@@ -1,44 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bill Analysis & Reconciliation Tool</title>
-    
+
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Source+Code+Pro&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Source+Code+Pro&display=swap"
+        rel="stylesheet">
+
     <!-- Link to your custom CSS file -->
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body class="bg-slate-100 flex items-center justify-center min-h-screen p-4 lg:p-8">
 
     <div class="w-full max-w-7xl bg-white rounded-xl shadow-lg p-6 md:p-8">
-        
-        <!-- Header -->
+
+        <!-- Header: Top title portion of the web page -->
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-slate-800">Bill Analysis & Reconciliation Tool</h1>
             <p id="header-subtitle" class="text-slate-500 mt-1">Choose a report generation method.</p>
         </div>
 
-        <!-- Main Content Area -->
+        <!-- Main Content Area: Wraps the three primary views of the application -->
         <div id="app-container">
 
-            <!-- === Selection Screen === -->
+            <!-- === Selection Screen: The initial view asking the user to pick Readymade or Manual generation === -->
             <div id="selectionScreen" class="text-center max-w-lg mx-auto">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <button id="showReadymadeBtn" class="bg-blue-600 text-white p-6 rounded-lg shadow-md hover:bg-blue-700 transition-all duration-300 flex flex-col items-center justify-center">
-                        <svg class="w-12 h-12 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                    <!-- Button to open the XML file upload workflow -->
+                    <button id="showReadymadeBtn"
+                        class="bg-blue-600 text-white p-6 rounded-lg shadow-md hover:bg-blue-700 transition-all duration-300 flex flex-col items-center justify-center">
+                        <svg class="w-12 h-12 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                        </svg>
                         <span class="font-bold text-lg">Generate Readymade Report</span>
                         <span class="text-sm text-blue-200 mt-1">Upload XML files for automatic analysis.</span>
                     </button>
-                    <button id="showManualBtn" class="bg-green-600 text-white p-6 rounded-lg shadow-md hover:bg-green-700 transition-all duration-300 flex flex-col items-center justify-center">
-                        <svg class="w-12 h-12 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
+                    <!-- Button to open the manual entry form workflow -->
+                    <button id="showManualBtn"
+                        class="bg-green-600 text-white p-6 rounded-lg shadow-md hover:bg-green-700 transition-all duration-300 flex flex-col items-center justify-center">
+                        <svg class="w-12 h-12 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                        </svg>
                         <span class="font-bold text-lg">Manually Generate Report</span>
                         <span class="text-sm text-green-200 mt-1">Enter data directly into a form.</span>
                     </button>
@@ -47,7 +62,8 @@
 
             <!-- === Readymade Report Section === -->
             <div id="readymadeSection" class="hidden">
-                <button class="back-btn mb-4 text-sm font-medium text-blue-600 hover:underline">&larr; Back to selection</button>
+                <button class="back-btn mb-4 text-sm font-medium text-blue-600 hover:underline">&larr; Back to
+                    selection</button>
                 <div class="grid grid-cols-1 lg:grid-cols-5 lg:gap-8">
                     <!-- Left Column: Upload & Controls -->
                     <div class="lg:col-span-2 space-y-6">
@@ -55,10 +71,16 @@
                         <div>
                             <h3 class="font-semibold text-slate-700 mb-2">File 1</h3>
                             <input type="file" id="fileInput1" class="hidden" accept=".xml">
-                            <div id="dropZone1" class="drop-zone border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer transition-all duration-300 hover:border-blue-500 hover:bg-blue-50">
+                            <div id="dropZone1"
+                                class="drop-zone border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer transition-all duration-300 hover:border-blue-500 hover:bg-blue-50">
                                 <div class="flex flex-col items-center justify-center space-y-2 text-slate-600">
-                                    <svg class="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3 3m3-3l3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
-                                    <p class="font-medium text-sm">Drop file here or <span class="text-blue-600">click to select</span></p>
+                                    <svg class="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M12 16.5V9.75m0 0l-3 3m3-3l3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                                    </svg>
+                                    <p class="font-medium text-sm">Drop file here or <span class="text-blue-600">click
+                                            to select</span></p>
                                     <p id="filePath1" class="text-xs text-slate-500 pt-1 break-all"></p>
                                 </div>
                             </div>
@@ -67,10 +89,16 @@
                         <div>
                             <h3 class="font-semibold text-slate-700 mb-2">File 2</h3>
                             <input type="file" id="fileInput2" class="hidden" accept=".xml">
-                            <div id="dropZone2" class="drop-zone border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer transition-all duration-300 hover:border-blue-500 hover:bg-blue-50">
+                            <div id="dropZone2"
+                                class="drop-zone border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer transition-all duration-300 hover:border-blue-500 hover:bg-blue-50">
                                 <div class="flex flex-col items-center justify-center space-y-2 text-slate-600">
-                                    <svg class="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3 3m3-3l3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
-                                    <p class="font-medium text-sm">Drop file here or <span class="text-blue-600">click to select</span></p>
+                                    <svg class="w-10 h-10 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M12 16.5V9.75m0 0l-3 3m3-3l3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                                    </svg>
+                                    <p class="font-medium text-sm">Drop file here or <span class="text-blue-600">click
+                                            to select</span></p>
                                     <p id="filePath2" class="text-xs text-slate-500 pt-1 break-all"></p>
                                 </div>
                             </div>
@@ -78,18 +106,26 @@
                         <!-- Controls and Status -->
                         <div class="flex flex-col gap-4 pt-4">
                             <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-                                <button id="analyzeButton" class="w-full sm:w-auto bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none" disabled>Analyze Reports</button>
-                                <div id="status" class="text-sm text-slate-600 font-medium bg-slate-200 px-3 py-1 rounded-full whitespace-nowrap">Waiting for files...</div>
+                                <button id="analyzeButton"
+                                    class="w-full sm:w-auto bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                                    disabled>Analyze Reports</button>
+                                <div id="status"
+                                    class="text-sm text-slate-600 font-medium bg-slate-200 px-3 py-1 rounded-full whitespace-nowrap">
+                                    Waiting for files...</div>
                             </div>
-                            <button id="previewReportButton" class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none" disabled>Generate PDF Report</button>
+                            <button id="previewReportButton"
+                                class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                                disabled>Generate PDF Report</button>
                         </div>
                     </div>
                     <!-- Right Column: Results -->
                     <div class="lg:col-span-3 mt-8 lg:mt-0">
                         <div class="bg-slate-50 rounded-lg p-4 h-full">
                             <h2 class="text-xl font-bold text-slate-700 mb-2">Analysis Results</h2>
-                            <div id="resultsArea" class="w-full min-h-[20rem] lg:min-h-[32rem] bg-white border border-slate-200 rounded-md p-4 overflow-auto space-y-4">
-                                <p class="text-center text-slate-500 pt-16">Please upload both XML reports to see the analysis.</p>
+                            <div id="resultsArea"
+                                class="w-full min-h-[20rem] lg:min-h-[32rem] bg-white border border-slate-200 rounded-md p-4 overflow-auto space-y-4">
+                                <p class="text-center text-slate-500 pt-16">Please upload both XML reports to see the
+                                    analysis.</p>
                             </div>
                         </div>
                     </div>
@@ -98,8 +134,9 @@
 
             <!-- === Manual Report Section === -->
             <div id="manualSection" class="hidden">
-                <button class="back-btn mb-4 text-sm font-medium text-blue-600 hover:underline">&larr; Back to selection</button>
-                
+                <button class="back-btn mb-4 text-sm font-medium text-blue-600 hover:underline">&larr; Back to
+                    selection</button>
+
                 <div class="max-w-4xl mx-auto">
                     <!-- PDF-like container -->
                     <div id="pdf-form-container" class="bg-white p-8 md:p-12 border border-slate-200 shadow-lg">
@@ -108,67 +145,114 @@
                             <h2 class="text-lg font-bold">PAO, GSI(NR),Lucknow</h2>
                             <p class="text-base">Daily Status Report of E. Bills</p>
                         </div>
-                        
+
                         <!-- Date -->
                         <div class="flex justify-start mb-6">
                             <div class="flex items-center gap-2">
                                 <label for="manual-report-date" class="font-bold text-sm">Date:</label>
-                                <input type="text" id="manual-report-date" placeholder="e.g., 24/09/2025" class="p-1 border-b-2 border-slate-300 focus:border-blue-500 outline-none text-sm w-32">
+                                <input type="text" id="manual-report-date" placeholder="e.g., 24/09/2025"
+                                    class="p-1 border-b-2 border-slate-300 focus:border-blue-500 outline-none text-sm w-32">
                             </div>
                         </div>
 
                         <!-- Table -->
-                        <div class="border-t border-b border-black grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center font-bold text-sm">
+                        <div
+                            class="border-t border-b border-black grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center font-bold text-sm">
                             <div class="p-2 border-r border-black">Type of Bills</div>
                             <div class="p-2 border-r border-black">Passed</div>
                             <div class="p-2 border-r border-black">Returned</div>
                             <div class="p-2 border-r border-black">Total</div>
                             <div class="p-2">Remarks</div>
                         </div>
-                        
-                        <!-- Table Rows -->
+
+                        <!-- Contains the inputs for the manually created report -->
                         <div id="manual-table-body">
-                            <!-- E. Bills NCDDO -->
-                            <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center text-sm border-b border-black items-center">
+
+                            <!-- E. Bills NCDDO: Passed and Returned count inputs -->
+                            <div
+                                class="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center text-sm border-b border-black items-center">
                                 <div class="p-2 border-r border-black text-left">E. Bills- NCDDO</div>
-                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-passed-ebills-ncddo" class="w-full text-center outline-none manual-input" data-row="ebills-ncddo" data-col="passed"></div>
-                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-returned-ebills-ncddo" class="w-full text-center outline-none manual-input" data-row="ebills-ncddo" data-col="returned"></div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0"
+                                        id="manual-passed-ebills-ncddo"
+                                        class="w-full text-center outline-none manual-input" data-row="ebills-ncddo"
+                                        data-col="passed"></div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0"
+                                        id="manual-returned-ebills-ncddo"
+                                        class="w-full text-center outline-none manual-input" data-row="ebills-ncddo"
+                                        data-col="returned"></div>
                                 <div class="p-2 border-r border-black font-bold" id="manual-total-ebills-ncddo">0</div>
                                 <div class="p-2 bg-slate-100"></div>
                             </div>
-                            <!-- E. Bills CDDO -->
-                            <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center text-sm border-b border-black items-center">
+
+                            <!-- E. Bills CDDO: Passed and Returned count inputs -->
+                            <div
+                                class="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center text-sm border-b border-black items-center">
                                 <div class="p-2 border-r border-black text-left">E. Bills- CDDO</div>
-                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-passed-ebills-cddo" class="w-full text-center outline-none manual-input" data-row="ebills-cddo" data-col="passed"></div>
-                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-returned-ebills-cddo" class="w-full text-center outline-none manual-input" data-row="ebills-cddo" data-col="returned"></div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0"
+                                        id="manual-passed-ebills-cddo"
+                                        class="w-full text-center outline-none manual-input" data-row="ebills-cddo"
+                                        data-col="passed"></div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0"
+                                        id="manual-returned-ebills-cddo"
+                                        class="w-full text-center outline-none manual-input" data-row="ebills-cddo"
+                                        data-col="returned"></div>
                                 <div class="p-2 border-r border-black font-bold" id="manual-total-ebills-cddo">0</div>
                                 <div class="p-2 bg-slate-100"></div>
                             </div>
-                            <!-- Normal Bills NCDDO -->
-                            <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center text-sm border-b border-black items-stretch">
+
+                            <!-- Normal Bills NCDDO: Contains counts and autogenerated text area for remarks -->
+                            <div
+                                class="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center text-sm border-b border-black items-stretch">
                                 <div class="p-2 border-r border-black text-left">Normal Bills- NCDDO</div>
-                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-passed-normal-ncddo" class="w-full text-center outline-none manual-input" data-row="normal-ncddo" data-col="passed"></div>
-                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-returned-normal-ncddo" class="w-full text-center outline-none manual-input" data-row="normal-ncddo" data-col="returned"></div>
-                                <div class="p-2 border-r border-black font-bold flex items-center justify-center" id="manual-total-normal-ncddo">0</div>
-                                <div class="p-1 remarks-cell cursor-text"><textarea id="manual-remarks-ncddo" class="w-full h-full outline-none text-xs remarks-textarea"></textarea></div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0"
+                                        id="manual-passed-normal-ncddo"
+                                        class="w-full text-center outline-none manual-input" data-row="normal-ncddo"
+                                        data-col="passed"></div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0"
+                                        id="manual-returned-normal-ncddo"
+                                        class="w-full text-center outline-none manual-input" data-row="normal-ncddo"
+                                        data-col="returned"></div>
+                                <div class="p-2 border-r border-black font-bold flex items-center justify-center"
+                                    id="manual-total-normal-ncddo">0</div>
+                                <div class="p-1 remarks-cell cursor-text"><textarea id="manual-remarks-ncddo"
+                                        class="w-full h-full outline-none text-xs remarks-textarea"></textarea></div>
                             </div>
-                            <!-- Normal Bills CDDO -->
-                            <div class="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center text-sm border-b border-black items-stretch">
+
+                            <!-- Normal Bills CDDO: Contains counts and autogenerated text area for remarks -->
+                            <div
+                                class="grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] text-center text-sm border-b border-black items-stretch">
                                 <div class="p-2 border-r border-black text-left">Normal Bills- CDDO</div>
-                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-passed-normal-cddo" class="w-full text-center outline-none manual-input" data-row="normal-cddo" data-col="passed"></div>
-                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0" id="manual-returned-normal-cddo" class="w-full text-center outline-none manual-input" data-row="normal-cddo" data-col="returned"></div>
-                                <div class="p-2 border-r border-black font-bold flex items-center justify-center" id="manual-total-normal-cddo">0</div>
-                                <div class="p-1 remarks-cell cursor-text"><textarea id="manual-remarks-cddo" class="w-full h-full outline-none text-xs remarks-textarea"></textarea></div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0"
+                                        id="manual-passed-normal-cddo"
+                                        class="w-full text-center outline-none manual-input" data-row="normal-cddo"
+                                        data-col="passed"></div>
+                                <div class="p-1 border-r border-black"><input type="number" value="0" min="0"
+                                        id="manual-returned-normal-cddo"
+                                        class="w-full text-center outline-none manual-input" data-row="normal-cddo"
+                                        data-col="returned"></div>
+                                <div class="p-2 border-r border-black font-bold flex items-center justify-center"
+                                    id="manual-total-normal-cddo">0</div>
+                                <div class="p-1 remarks-cell cursor-text"><textarea id="manual-remarks-cddo"
+                                        class="w-full h-full outline-none text-xs remarks-textarea"></textarea></div>
                             </div>
                         </div>
 
-                        <!-- Footer -->
-                        <div class="mt-8">
+                        <!-- Footer Section: Contains signature, percentage summary, and approval details -->
+                        <div class="mt-8 relative">
                             <div class="flex items-center gap-2 mb-12">
-                                <label for="manual-percentage" class="font-bold text-sm">Percentage of E. Bills being passed:</label>
-                                <input type="text" id="manual-percentage" placeholder="e.g., 85.50%" class="p-1 border-b-2 border-slate-300 focus:border-blue-500 outline-none text-sm w-32">
+                                <label for="manual-percentage" class="font-bold text-sm">Percentage of E. Bills being
+                                    passed:</label>
+                                <input type="text" id="manual-percentage" placeholder="e.g., 85.50%"
+                                    class="p-1 border-b-2 border-slate-300 focus:border-blue-500 outline-none text-sm w-32">
                             </div>
-                            <div class="text-right text-sm">
+
+                            <!-- Centered Signature -->
+                            <div class="absolute w-full flex justify-end -mt-16">
+                                <img id="signature-img" src="signature.png" alt="Signature" class="h-16 w-auto">
+                            </div>
+
+                            <!-- Authority/Signatory details right justified under the signature -->
+                            <div class="text-right text-sm relative z-10">
                                 <p class="font-medium">Assistant Accounts Officer</p>
                                 <p>Pre-Check Section</p>
                                 <p>PAO, GSI(NR), Lucknow</p>
@@ -176,9 +260,10 @@
                         </div>
                     </div>
 
-                    <!-- Generate Button -->
+                    <!-- Generate Button Wrapper -->
                     <div class="text-center mt-8">
-                        <button id="generateManualPdfButton" class="w-full max-w-xs bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-all duration-300">
+                        <button id="generateManualPdfButton"
+                            class="w-full max-w-xs bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-all duration-300">
                             Generate PDF Report
                         </button>
                     </div>
@@ -187,7 +272,7 @@
 
         </div>
     </div>
-    
+
     <!-- External Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -195,4 +280,5 @@
     <!-- Link to your custom JavaScript file -->
     <script src="script.js"></script>
 </body>
+
 </html>
