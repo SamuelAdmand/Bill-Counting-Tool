@@ -242,22 +242,39 @@
                             <div class="flex items-center gap-2 mb-8">
                                 <label for="manual-percentage" class="font-bold text-sm">Percentage of E. Bills being
                                     passed:</label>
-                                <input type="text" id="manual-percentage" placeholder="e.g., 85.50%"
+                                <input type="text" id="manual-percentage" value="100.00%" placeholder="e.g., 85.50%"
                                     class="p-1 border-b-2 border-slate-300 focus:border-blue-500 outline-none text-sm w-32">
                             </div>
 
                             <!-- Right-aligned container for toggle, signature, and text -->
                             <div class="flex flex-col items-end text-sm mt-4">
-                                <!-- Signature Toggle -->
-                                <label for="include-signature"
-                                    class="flex items-center gap-2 mb-4 cursor-pointer select-none group bg-slate-50 p-2 rounded hover:bg-slate-100 transition-colors">
-                                    <input type="checkbox" id="include-signature"
-                                        class="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
-                                        checked>
-                                    <span
-                                        class="font-bold text-sm text-slate-700 group-hover:text-blue-700 transition-colors">Include
-                                        Signature in PDF</span>
-                                </label>
+                                <!-- Options Control Panel -->
+                                <div class="flex flex-col gap-2 mb-6 w-full max-w-[15rem] bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                    <h4 class="font-bold text-xs text-slate-500 uppercase tracking-wider mb-2 text-left">Report Settings</h4>
+                                    
+                                    <!-- AAO Signature Toggle -->
+                                    <label for="include-signature" class="flex items-center gap-2 cursor-pointer select-none group text-left">
+                                        <input type="checkbox" id="include-signature"
+                                            class="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                                            checked>
+                                        <span class="text-sm text-slate-700 group-hover:text-blue-700 transition-colors">Include AAO Signature</span>
+                                    </label>
+
+                                    <!-- DH Signature Toggle -->
+                                    <label for="include-dh-signature" class="flex items-center gap-2 cursor-pointer select-none group text-left">
+                                        <input type="checkbox" id="include-dh-signature"
+                                            class="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                                            checked>
+                                        <span class="text-sm text-slate-700 group-hover:text-blue-700 transition-colors">Include DH Signature</span>
+                                    </label>
+
+                                    <!-- Black & White PDF Toggle -->
+                                    <label for="black-white-pdf" class="flex items-center gap-2 cursor-pointer select-none group text-left">
+                                        <input type="checkbox" id="black-white-pdf"
+                                            class="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
+                                        <span class="text-sm text-slate-700 group-hover:text-blue-700 transition-colors">Black & White PDF</span>
+                                    </label>
+                                </div>
 
                                 <!-- Signature Image Area -->
                                 <div id="signature-container"
@@ -271,6 +288,18 @@
                                     <p class="font-medium">Assistant Accounts Officer</p>
                                     <p>Pre-Check Section</p>
                                     <p>PAO, GSI(NR), Lucknow</p>
+                                </div>
+
+                                <!-- Dealing Hand Signature Image Area -->
+                                <div id="signature-dealing-hand-container"
+                                    class="h-20 w-40 flex justify-end items-end mt-4 mb-1 transition-opacity duration-200">
+                                    <img id="signature-dealing-hand-img" src="signature_dealing_hand.png" alt="Dealing Hand Signature"
+                                        class="max-h-full max-w-full">
+                                </div>
+
+                                <!-- Dealing Hand details right justified -->
+                                <div class="text-right text-sm">
+                                    <p class="font-medium">Dealing Hand</p>
                                 </div>
                             </div>
                         </div>

@@ -49,6 +49,11 @@ function initialize() {
     manualSection.addEventListener('click', handleRemarksCellClick);
     manualSection.addEventListener('focusin', handleRemarksFocus);
     generateManualPdfButton.addEventListener('click', generateManualPdfReport);
+
+    // Load persisted state
+    loadManualData();
+    const savedScreen = localStorage.getItem('activeScreen') || 'selection';
+    showScreen(savedScreen);
 }
 
 // --- UI Management ---
@@ -64,25 +69,59 @@ function showScreen(screenName) {
         manualSection.classList.remove('hidden');
         headerSubtitle.textContent = 'Fill in the details below to create your report.';
 
-        // Setup signature toggle listener if not already there
+        // Setup settings panel listeners if not already there
         const sigToggle = document.getElementById('include-signature');
+        const sigDHToggle = document.getElementById('include-dh-signature');
+        const bwToggle = document.getElementById('black-white-pdf');
+
         if (sigToggle && !sigToggle.hasAttribute('data-listener-attached')) {
             sigToggle.addEventListener('change', (e) => {
                 const sigContainer = document.getElementById('signature-container');
-                if (sigContainer) {
-                    sigContainer.style.opacity = e.target.checked ? '1' : '0';
-                }
+                if (sigContainer) sigContainer.style.opacity = e.target.checked ? '1' : '0';
+                saveManualData();
             });
             sigToggle.setAttribute('data-listener-attached', 'true');
-
-            // initialize state
-            const sigContainer = document.getElementById('signature-container');
-            if (sigContainer) sigContainer.style.opacity = sigToggle.checked ? '1' : '0';
         }
+
+        if (sigDHToggle && !sigDHToggle.hasAttribute('data-listener-attached')) {
+            sigDHToggle.addEventListener('change', (e) => {
+                const sigDHContainer = document.getElementById('signature-dealing-hand-container');
+                if (sigDHContainer) sigDHContainer.style.opacity = e.target.checked ? '1' : '0';
+                saveManualData();
+            });
+            sigDHToggle.setAttribute('data-listener-attached', 'true');
+        }
+
+        if (bwToggle && !bwToggle.hasAttribute('data-listener-attached')) {
+            bwToggle.addEventListener('change', (e) => {
+                const sigImg = document.getElementById('signature-img');
+                const sigDHImg = document.getElementById('signature-dealing-hand-img');
+                const filterVal = e.target.checked ? 'grayscale(100%)' : 'none';
+                if (sigImg) sigImg.style.filter = filterVal;
+                if (sigDHImg) sigDHImg.style.filter = filterVal;
+                saveManualData();
+            });
+            bwToggle.setAttribute('data-listener-attached', 'true');
+        }
+
+        // Initialize state opacities and filters in the UI
+        const sigContainer = document.getElementById('signature-container');
+        if (sigContainer && sigToggle) sigContainer.style.opacity = sigToggle.checked ? '1' : '0';
+
+        const sigDHContainer = document.getElementById('signature-dealing-hand-container');
+        if (sigDHContainer && sigDHToggle) sigDHContainer.style.opacity = sigDHToggle.checked ? '1' : '0';
+
+        const sigImg = document.getElementById('signature-img');
+        const sigDHImg = document.getElementById('signature-dealing-hand-img');
+        const filterVal = (bwToggle && bwToggle.checked) ? 'grayscale(100%)' : 'none';
+        if (sigImg) sigImg.style.filter = filterVal;
+        if (sigDHImg) sigDHImg.style.filter = filterVal;
     } else {
         selectionScreen.classList.remove('hidden');
         headerSubtitle.textContent = 'Choose a report generation method.';
     }
+
+    localStorage.setItem('activeScreen', screenName);
 }
 
 
@@ -293,8 +332,23 @@ function getDisplayCategory(bill) {
         if (bill.userNm.includes('[Pension]')) { categories.push('Pension'); hasUserNmCategory = true; }
     }
     if (!hasUserNmCategory) {
-        if (bill.objectHeads && bill.objectHeads.length > 0) categories.push(...bill.objectHeads);
-        else if (bill.funcHeads && bill.funcHeads.length > 0) categories.push(...bill.funcHeads);
+        const processHeads = (heads) => {
+            heads.forEach(head => {
+                const lower = head.toLowerCase();
+                if (lower.includes('nps')) {
+                    categories.push('Nps');
+                } else if (lower.includes('ups') || lower.includes('unified pension scheme')) {
+                    categories.push('Ups');
+                } else {
+                    categories.push(head);
+                }
+            });
+        };
+        if (bill.objectHeads && bill.objectHeads.length > 0) {
+            processHeads(bill.objectHeads);
+        } else if (bill.funcHeads && bill.funcHeads.length > 0) {
+            processHeads(bill.funcHeads);
+        }
     }
     if (categories.length === 0) return 'Uncategorized';
     return categories.join(', ');
@@ -351,11 +405,13 @@ function displayResults(results) {
 // ===================================================================================
 
 function titleCaseCategory(cat) {
+    const lower = cat.toLowerCase();
     // Handle special hardcoded cases first
-    if (cat.toLowerCase() === 'gpf') return 'Gpf';
-    if (cat.toLowerCase() === 'gem') return 'Gem';
-    if (cat.toLowerCase() === 'salary(eis)') return 'Salary(eis)';
-    if (cat.toLowerCase() === 'nps') return 'NPS';
+    if (lower === 'gpf') return 'Gpf';
+    if (lower === 'gem') return 'Gem';
+    if (lower === 'salary(eis)') return 'Salary(eis)';
+    if (lower.includes('nps')) return 'Nps';
+    if (lower.includes('ups') || lower.includes('unified pension scheme')) return 'Ups';
 
     let textPart = cat;
     let codePart = '';
@@ -415,10 +471,7 @@ function populateAndShowManualForm() {
 
     setInputValue('manual-report-date', issueDate || new Date().toLocaleDateString('en-GB'));
 
-    const totalPassedEBills = ncddoEBills.length + cddoEBills.length;
-    const totalPassedBills = totalPassedEBills + ncddoNormalBills.length + cddoNormalBills.length;
-    const percentage = totalPassedBills > 0 ? `${((totalPassedEBills / totalPassedBills) * 100).toFixed(2)}%` : "0.00%";
-    setInputValue('manual-percentage', percentage);
+    setInputValue('manual-percentage', "100.00%");
 
     // Finally, update totals and resize textareas now that they are visible
     document.querySelectorAll('.manual-input').forEach(el => updateManualTotal(el));
@@ -429,12 +482,15 @@ function populateAndShowManualForm() {
             textarea.value = '';
         }
     });
+
+    saveManualData();
 }
 
 function handleManualFormInput(event) {
     const target = event.target;
     if (target.classList.contains('remarks-textarea')) autoexpandTextarea(target);
     if (target.classList.contains('manual-input')) updateManualTotal(target);
+    saveManualData();
 }
 
 function handleRemarksCellClick(event) {
@@ -518,7 +574,9 @@ function generateManualPdfReport() {
     const reportDate = document.getElementById('manual-report-date').value.trim() || new Date().toLocaleDateString('en-GB');
     const percentage = document.getElementById('manual-percentage').value.trim() || 'Not provided';
     const includeSignature = document.getElementById('include-signature').checked;
-    generatePdf(reportDate, data, percentage, includeSignature);
+    const includeDHSignature = document.getElementById('include-dh-signature').checked;
+    const blackWhitePdf = document.getElementById('black-white-pdf').checked;
+    generatePdf(reportDate, data, percentage, includeSignature, includeDHSignature, blackWhitePdf);
 }
 
 
@@ -526,7 +584,7 @@ function generateManualPdfReport() {
 // === SHARED PDF GENERATION LOGIC ===================================================
 // ===================================================================================
 
-function generatePdf(reportDate, data, percentage, includeSignature = true) {
+function generatePdf(reportDate, data, percentage, includeSignature = true, includeDHSignature = true, blackWhitePdf = false) {
     const doc = new window.jspdf.jsPDF();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
@@ -596,11 +654,150 @@ function generatePdf(reportDate, data, percentage, includeSignature = true) {
         const sigHeight = (sigImg.naturalHeight / sigImg.naturalWidth) * sigWidth;
         const sigX = 183 - sigWidth; // align right edge to 190
         const sigY = footerY + 17 - sigHeight; // position above text
-        doc.addImage(sigImg, 'PNG', sigX, sigY, sigWidth, sigHeight);
+
+        let addImgSrc = sigImg;
+        if (blackWhitePdf) {
+            addImgSrc = convertToGrayscale(sigImg);
+        }
+        doc.addImage(addImgSrc, 'PNG', sigX, sigY, sigWidth, sigHeight);
     }
 
     doc.text("Assistant Accounts Officer", 190, footerY + 20, { align: "right" });
     doc.text("Pre-Check Section", 190, footerY + 25, { align: "right" });
     doc.text("PAO, GSI(NR), Lucknow", 190, footerY + 30, { align: "right" });
+
+    // --- Dealing Hand Signature block ---
+    const dhBaseY = footerY + 45;
+    const sigDHImg = document.getElementById('signature-dealing-hand-img');
+    if (includeDHSignature && sigDHImg && sigDHImg.complete && sigDHImg.naturalWidth !== 0) {
+        const sigDHWidth = 35;
+        const sigDHHeight = (sigDHImg.naturalHeight / sigDHImg.naturalWidth) * sigDHWidth;
+        const sigDHX = 183 - sigDHWidth;
+        const sigDHY = dhBaseY + 17 - sigDHHeight;
+
+        let addImgSrc = sigDHImg;
+        if (blackWhitePdf) {
+            addImgSrc = convertToGrayscale(sigDHImg);
+        }
+        doc.addImage(addImgSrc, 'PNG', sigDHX, sigDHY, sigDHWidth, sigDHHeight);
+    }
+
+    doc.text("Dealing Hand", 190, dhBaseY + 20, { align: "right" });
     doc.save(`Daily_Status_Report_${reportDate.replace(/\//g, '-')}.pdf`);
+}
+
+function convertToGrayscale(imgElement) {
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = imgElement.naturalWidth || imgElement.width;
+        canvas.height = imgElement.naturalHeight || imgElement.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imgElement, 0, 0);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+            data[i] = gray;
+            data[i + 1] = gray;
+            data[i + 2] = gray;
+        }
+        ctx.putImageData(imgData, 0, 0);
+        return canvas.toDataURL('image/png');
+    } catch (e) {
+        console.error('Error converting image to grayscale:', e);
+        return imgElement.src;
+    }
+}
+
+// --- State Persistence Helpers ---
+
+function saveManualData() {
+    const data = {
+        date: document.getElementById('manual-report-date')?.value || '',
+        passedEbillsNcddo: document.getElementById('manual-passed-ebills-ncddo')?.value || '0',
+        returnedEbillsNcddo: document.getElementById('manual-returned-ebills-ncddo')?.value || '0',
+        passedEbillsCddo: document.getElementById('manual-passed-ebills-cddo')?.value || '0',
+        returnedEbillsCddo: document.getElementById('manual-returned-ebills-cddo')?.value || '0',
+        passedNormalNcddo: document.getElementById('manual-passed-normal-ncddo')?.value || '0',
+        returnedNormalNcddo: document.getElementById('manual-returned-normal-ncddo')?.value || '0',
+        remarksNcddo: document.getElementById('manual-remarks-ncddo')?.value || '',
+        passedNormalCddo: document.getElementById('manual-passed-normal-cddo')?.value || '0',
+        returnedNormalCddo: document.getElementById('manual-returned-normal-cddo')?.value || '0',
+        remarksCddo: document.getElementById('manual-remarks-cddo')?.value || '',
+        percentage: document.getElementById('manual-percentage')?.value || '',
+        includeSignature: document.getElementById('include-signature')?.checked ?? true,
+        includeDHSignature: document.getElementById('include-dh-signature')?.checked ?? true,
+        blackWhitePdf: document.getElementById('black-white-pdf')?.checked ?? false
+    };
+    localStorage.setItem('manualReportData', JSON.stringify(data));
+}
+
+function loadManualData() {
+    const dataStr = localStorage.getItem('manualReportData');
+    if (!dataStr) return;
+    try {
+        const data = JSON.parse(dataStr);
+
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el && val !== undefined) el.value = val;
+        };
+
+        setVal('manual-report-date', data.date);
+        setVal('manual-passed-ebills-ncddo', data.passedEbillsNcddo);
+        setVal('manual-returned-ebills-ncddo', data.returnedEbillsNcddo);
+        setVal('manual-passed-ebills-cddo', data.passedEbillsCddo);
+        setVal('manual-returned-ebills-cddo', data.returnedEbillsCddo);
+        setVal('manual-passed-normal-ncddo', data.passedNormalNcddo);
+        setVal('manual-returned-normal-ncddo', data.returnedNormalNcddo);
+        setVal('manual-remarks-ncddo', data.remarksNcddo);
+        setVal('manual-passed-normal-cddo', data.passedNormalCddo);
+        setVal('manual-returned-normal-cddo', data.returnedNormalCddo);
+        setVal('manual-remarks-cddo', data.remarksCddo);
+        setVal('manual-percentage', data.percentage);
+
+        const sigToggle = document.getElementById('include-signature');
+        if (sigToggle && data.includeSignature !== undefined) {
+            sigToggle.checked = data.includeSignature;
+        }
+
+        const sigDHToggle = document.getElementById('include-dh-signature');
+        if (sigDHToggle && data.includeDHSignature !== undefined) {
+            sigDHToggle.checked = data.includeDHSignature;
+        }
+
+        const bwToggle = document.getElementById('black-white-pdf');
+        if (bwToggle && data.blackWhitePdf !== undefined) {
+            bwToggle.checked = data.blackWhitePdf;
+        }
+
+        // Update totals
+        document.querySelectorAll('.manual-input').forEach(el => updateManualTotal(el));
+
+        // Auto-expand non-empty textareas
+        document.querySelectorAll('.remarks-textarea').forEach(textarea => {
+            if (textarea.value.trim() !== '') {
+                autoexpandTextarea(textarea);
+            }
+        });
+
+        // Set signature visibility state in UI
+        const sigContainer = document.getElementById('signature-container');
+        const sigDHContainer = document.getElementById('signature-dealing-hand-container');
+        if (sigContainer) sigContainer.style.opacity = (sigToggle && sigToggle.checked) ? '1' : '0';
+        if (sigDHContainer) sigDHContainer.style.opacity = (sigDHToggle && sigDHToggle.checked) ? '1' : '0';
+
+        // Set signature grayscale filter in UI
+        const sigImg = document.getElementById('signature-img');
+        const sigDHImg = document.getElementById('signature-dealing-hand-img');
+        const filterVal = (bwToggle && bwToggle.checked) ? 'grayscale(100%)' : 'none';
+        if (sigImg) sigImg.style.filter = filterVal;
+        if (sigDHImg) sigDHImg.style.filter = filterVal;
+
+    } catch (e) {
+        console.error('Error loading manual report data:', e);
+    }
 }
