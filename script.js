@@ -654,11 +654,8 @@ function generatePdf(reportDate, data, percentage, includeSignature = true, incl
         const sigHeight = (sigImg.naturalHeight / sigImg.naturalWidth) * sigWidth;
         const sigX = 183 - sigWidth; // align right edge to 190
         const sigY = footerY + 17 - sigHeight; // position above text
-
-        let addImgSrc = sigImg;
-        if (blackWhitePdf) {
-            addImgSrc = convertToGrayscale(sigImg);
-        }
+        
+        const addImgSrc = getProcessedSignature(sigImg, blackWhitePdf);
         doc.addImage(addImgSrc, 'PNG', sigX, sigY, sigWidth, sigHeight);
     }
 
@@ -672,13 +669,10 @@ function generatePdf(reportDate, data, percentage, includeSignature = true, incl
     if (includeDHSignature && sigDHImg && sigDHImg.complete && sigDHImg.naturalWidth !== 0) {
         const sigDHWidth = 35;
         const sigDHHeight = (sigDHImg.naturalHeight / sigDHImg.naturalWidth) * sigDHWidth;
-        const sigDHX = 183 - sigDHWidth;
+        const sigDHX = 191 - sigDHWidth; // Align to 191 instead of 183 to correct left drift
         const sigDHY = dhBaseY + 17 - sigDHHeight;
 
-        let addImgSrc = sigDHImg;
-        if (blackWhitePdf) {
-            addImgSrc = convertToGrayscale(sigDHImg);
-        }
+        const addImgSrc = getProcessedSignature(sigDHImg, blackWhitePdf);
         doc.addImage(addImgSrc, 'PNG', sigDHX, sigDHY, sigDHWidth, sigDHHeight);
     }
 
@@ -686,28 +680,47 @@ function generatePdf(reportDate, data, percentage, includeSignature = true, incl
     doc.save(`Daily_Status_Report_${reportDate.replace(/\//g, '-')}.pdf`);
 }
 
-function convertToGrayscale(imgElement) {
+function getProcessedSignature(imgElement, makeGrayscale = false) {
     try {
         const canvas = document.createElement('canvas');
-        canvas.width = imgElement.naturalWidth || imgElement.width;
-        canvas.height = imgElement.naturalHeight || imgElement.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(imgElement, 0, 0);
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imgData.data;
-        for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-            data[i] = gray;
-            data[i + 1] = gray;
-            data[i + 2] = gray;
+        const maxDim = 600;
+        let width = imgElement.naturalWidth || imgElement.width || maxDim;
+        let height = imgElement.naturalHeight || imgElement.height || maxDim;
+        
+        // Scale down if exceeds maxDim
+        if (width > maxDim || height > maxDim) {
+            if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+            } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+            }
         }
-        ctx.putImageData(imgData, 0, 0);
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imgElement, 0, 0, width, height);
+        
+        if (makeGrayscale) {
+            const imgData = ctx.getImageData(0, 0, width, height);
+            const data = imgData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                data[i] = gray;
+                data[i + 1] = gray;
+                data[i + 2] = gray;
+            }
+            ctx.putImageData(imgData, 0, 0);
+        }
+        
         return canvas.toDataURL('image/png');
     } catch (e) {
-        console.error('Error converting image to grayscale:', e);
+        console.error('Error processing signature image:', e);
         return imgElement.src;
     }
 }
