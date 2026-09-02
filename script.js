@@ -27,6 +27,7 @@ const resultsArea = document.getElementById('resultsArea');
 let selectedFile1 = null;
 let selectedFile2 = null;
 let lastAnalysisResults = null;
+let manualPreviousScreen = localStorage.getItem('manualPreviousScreen') || 'selection';
 
 // --- Initial Setup ---
 document.addEventListener('DOMContentLoaded', initialize);
@@ -34,8 +35,23 @@ document.addEventListener('DOMContentLoaded', initialize);
 function initialize() {
     // UI Switching Listeners
     showReadymadeBtn.addEventListener('click', () => showScreen('readymade'));
-    showManualBtn.addEventListener('click', () => showScreen('manual'));
-    backBtns.forEach(btn => btn.addEventListener('click', () => showScreen('selection')));
+    showManualBtn.addEventListener('click', () => {
+        manualPreviousScreen = 'selection';
+        localStorage.setItem('manualPreviousScreen', 'selection');
+        showScreen('manual');
+    });
+
+    const readymadeBackBtn = document.getElementById('readymadeBackBtn');
+    if (readymadeBackBtn) {
+        readymadeBackBtn.addEventListener('click', () => showScreen('selection'));
+    }
+
+    const manualBackBtn = document.getElementById('manualBackBtn');
+    if (manualBackBtn) {
+        manualBackBtn.addEventListener('click', () => {
+            showScreen(manualPreviousScreen === 'readymade' ? 'readymade' : 'selection');
+        });
+    }
 
     // Readymade Workflow Listeners
     setupEventListeners(dropZone1, fileInput1, (file) => handleFile(file, 1));
@@ -68,6 +84,14 @@ function showScreen(screenName) {
     } else if (screenName === 'manual') {
         manualSection.classList.remove('hidden');
         headerSubtitle.textContent = 'Fill in the details below to create your report.';
+
+        // Update back button label based on where user navigated from
+        const manualBackBtn = document.getElementById('manualBackBtn');
+        if (manualBackBtn) {
+            manualBackBtn.innerHTML = (manualPreviousScreen === 'readymade')
+                ? '&larr; Back to analysis results'
+                : '&larr; Back to selection';
+        }
 
         // Setup settings panel listeners if not already there
         const sigToggle = document.getElementById('include-signature');
@@ -104,6 +128,9 @@ function showScreen(screenName) {
             bwToggle.setAttribute('data-listener-attached', 'true');
         }
 
+        // Setup dynamic DH signature handlers
+        setupDHSignatureHandlers();
+
         // Initialize state opacities and filters in the UI
         const sigContainer = document.getElementById('signature-container');
         if (sigContainer && sigToggle) sigContainer.style.opacity = sigToggle.checked ? '1' : '0';
@@ -122,6 +149,106 @@ function showScreen(screenName) {
     }
 
     localStorage.setItem('activeScreen', screenName);
+}
+
+// --- Dynamic DH Signature Handlers ---
+function setupDHSignatureHandlers() {
+    const uploadBtn = document.getElementById('upload-dh-signature-btn');
+    const fileInput = document.getElementById('dh-signature-file-input');
+    const removeBtn = document.getElementById('remove-dh-signature-btn');
+    const sigDHToggle = document.getElementById('include-dh-signature');
+    const sigDHContainer = document.getElementById('signature-dealing-hand-container');
+
+    if (uploadBtn && fileInput && !uploadBtn.hasAttribute('data-listener-attached')) {
+        uploadBtn.addEventListener('click', () => fileInput.click());
+        uploadBtn.setAttribute('data-listener-attached', 'true');
+    }
+
+    if (fileInput && !fileInput.hasAttribute('data-listener-attached')) {
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    // Compress / optimize signature to lightweight data URL
+                    const canvas = document.createElement('canvas');
+                    const maxDim = 600;
+                    let width = img.naturalWidth || img.width;
+                    let height = img.naturalHeight || img.height;
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        } else {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const compressedDataUrl = canvas.toDataURL('image/png');
+
+                    localStorage.setItem('dh_custom_signature', compressedDataUrl);
+                    applyDHSignature(compressedDataUrl);
+                    if (sigDHToggle) {
+                        sigDHToggle.checked = true;
+                        if (sigDHContainer) sigDHContainer.style.opacity = '1';
+                    }
+                    saveManualData();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+            fileInput.value = '';
+        });
+        fileInput.setAttribute('data-listener-attached', 'true');
+    }
+
+    if (removeBtn && !removeBtn.hasAttribute('data-listener-attached')) {
+        removeBtn.addEventListener('click', () => {
+            localStorage.removeItem('dh_custom_signature');
+            applyDHSignature(null);
+            if (sigDHToggle) {
+                sigDHToggle.checked = false;
+                if (sigDHContainer) sigDHContainer.style.opacity = '0';
+            }
+            saveManualData();
+        });
+        removeBtn.setAttribute('data-listener-attached', 'true');
+    }
+}
+
+function applyDHSignature(dataUrl) {
+    const sigDHImg = document.getElementById('signature-dealing-hand-img');
+    const removeBtn = document.getElementById('remove-dh-signature-btn');
+    const statusText = document.getElementById('dh-sig-status');
+
+    if (dataUrl) {
+        if (sigDHImg) {
+            sigDHImg.src = dataUrl;
+            sigDHImg.classList.remove('hidden');
+        }
+        if (removeBtn) removeBtn.classList.remove('hidden');
+        if (statusText) {
+            statusText.textContent = 'Custom DH signature loaded';
+            statusText.className = 'text-[11px] text-green-600 font-medium text-left';
+        }
+    } else {
+        if (sigDHImg) {
+            sigDHImg.src = '';
+            sigDHImg.classList.add('hidden');
+        }
+        if (removeBtn) removeBtn.classList.add('hidden');
+        if (statusText) {
+            statusText.textContent = 'No DH signature uploaded';
+            statusText.className = 'text-[11px] text-slate-500 text-left';
+        }
+    }
 }
 
 
@@ -450,7 +577,9 @@ function populateAndShowManualForm() {
         if (el) el.value = value;
     };
 
-    // First, switch to the manual screen to ensure elements are visible
+    // First, record that we came from the readymade analysis screen and switch
+    manualPreviousScreen = 'readymade';
+    localStorage.setItem('manualPreviousScreen', 'readymade');
     showScreen('manual');
 
     // Now, populate the values
@@ -666,7 +795,7 @@ function generatePdf(reportDate, data, percentage, includeSignature = true, incl
     // --- Dealing Hand Signature block ---
     const dhBaseY = footerY + 45;
     const sigDHImg = document.getElementById('signature-dealing-hand-img');
-    if (includeDHSignature && sigDHImg && sigDHImg.complete && sigDHImg.naturalWidth !== 0) {
+    if (includeDHSignature && sigDHImg && !sigDHImg.classList.contains('hidden') && sigDHImg.src && sigDHImg.complete && sigDHImg.naturalWidth !== 0) {
         const sigDHWidth = 35;
         const sigDHHeight = (sigDHImg.naturalHeight / sigDHImg.naturalWidth) * sigDHWidth;
         const sigDHX = 191 - sigDHWidth; // Align to 191 instead of 183 to correct left drift
@@ -742,15 +871,24 @@ function saveManualData() {
         remarksCddo: document.getElementById('manual-remarks-cddo')?.value || '',
         percentage: document.getElementById('manual-percentage')?.value || '',
         includeSignature: document.getElementById('include-signature')?.checked ?? true,
-        includeDHSignature: document.getElementById('include-dh-signature')?.checked ?? true,
+        includeDHSignature: document.getElementById('include-dh-signature')?.checked ?? false,
         blackWhitePdf: document.getElementById('black-white-pdf')?.checked ?? false
     };
     localStorage.setItem('manualReportData', JSON.stringify(data));
 }
 
 function loadManualData() {
+    const savedDHSig = localStorage.getItem('dh_custom_signature');
+    applyDHSignature(savedDHSig || null);
+
     const dataStr = localStorage.getItem('manualReportData');
-    if (!dataStr) return;
+    if (!dataStr) {
+        const sigDHToggle = document.getElementById('include-dh-signature');
+        if (sigDHToggle) sigDHToggle.checked = !!savedDHSig;
+        const sigDHContainer = document.getElementById('signature-dealing-hand-container');
+        if (sigDHContainer) sigDHContainer.style.opacity = savedDHSig ? '1' : '0';
+        return;
+    }
     try {
         const data = JSON.parse(dataStr);
 
@@ -779,7 +917,9 @@ function loadManualData() {
 
         const sigDHToggle = document.getElementById('include-dh-signature');
         if (sigDHToggle && data.includeDHSignature !== undefined) {
-            sigDHToggle.checked = data.includeDHSignature;
+            sigDHToggle.checked = data.includeDHSignature && !!savedDHSig;
+        } else if (sigDHToggle) {
+            sigDHToggle.checked = !!savedDHSig;
         }
 
         const bwToggle = document.getElementById('black-white-pdf');
